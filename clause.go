@@ -6,8 +6,8 @@ type Clause struct {
 	Learnt    bool
 	Relocated bool
 	Size      int32
-	Lit       []Lit
 	*ClauseExtra
+	Lit []Lit
 }
 
 // CalcAbstraction computes and stores an abstraction of variables in c like a
