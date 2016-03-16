@@ -10,6 +10,14 @@ const (
 // LBool is a lifted boolean value which may be undefined.
 type LBool uint8
 
+// Bool returns LTrue or LFalse if b is true or false respectively.
+func Bool(b bool) LBool {
+	if b {
+		return LTrue
+	}
+	return LFalse
+}
+
 // IsTrue returns true if b is equivalent to LTrue
 func (b LBool) IsTrue() bool {
 	return b.Equal(LTrue)
@@ -40,4 +48,12 @@ func (b LBool) And(b2 LBool) LBool {
 func (b LBool) Or(b2 LBool) LBool {
 	const magic = 0xFCFCF400
 	return LBool(uint(magic)>>((b<<1)|(b2<<3))) & 3
+}
+
+// Xor returns the exclusive or of b and b2.
+func (b LBool) Xor(b2 bool) LBool {
+	if b2 {
+		return b ^ 1
+	}
+	return b
 }

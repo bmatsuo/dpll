@@ -82,3 +82,27 @@ func btol(b bool) Lit {
 	}
 	return 0
 }
+
+type litSlice []Lit
+
+func (s litSlice) Len() int           { return len(s) }
+func (s litSlice) Less(i, j int) bool { return s[i] < s[j] }
+func (s litSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type litSet map[Lit]struct{}
+
+func newLitSet() litSet {
+	return make(litSet)
+}
+
+func (s litSet) insert(p Lit) {
+	s[p] = struct{}{}
+}
+
+func (s litSet) slice() []Lit {
+	ps := make([]Lit, 0, len(s))
+	for p := range s {
+		ps = append(ps, p)
+	}
+	return ps
+}
