@@ -1,3 +1,8 @@
+// Copyright 2016 Bryan Matsuo
+//
+// Use of this software is governed by the MIT license.  A copy of the license
+// agreement can be found in the LICENSE file distributed with this software.
+
 package dpll
 
 // LBool constants
