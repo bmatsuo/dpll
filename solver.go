@@ -165,7 +165,7 @@ type DPLL struct {
 	vardata   []varData
 	watches   *occLists // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
 
-	orderHeap *maxActiveHeap
+	orderHeap *activityQueue
 
 	ok          bool    // If false the constraints are already unsatisfiable. No part of the solver state may be used.
 	claIncr     float64 // Amount to bump next clause with
@@ -203,7 +203,7 @@ func New(opt *Opt) *DPLL {
 	d := &DPLL{}
 	d.Opt = *mergeOptDefault(opt)
 	d.watches = newOccLists()
-	d.orderHeap = newMaxActiveHeap(&d.activity)
+	d.orderHeap = newActivityQueue(&d.activity)
 	d.ok = true
 	d.claIncr = 1
 	d.varIncr = 1
@@ -809,7 +809,7 @@ func (d *DPLL) solve() LBool {
 		if d.NoLubyRestart {
 			restBase = math.Pow(d.RestartIncr, float64(currRestarts))
 		} else {
-			restBase = luby(d.RestartIncr, currRestarts)
+			restBase = Luby(d.RestartIncr, currRestarts)
 		}
 		status = d.search(int(restBase * float64(d.RestartFirst)))
 		if !d.withinBudget() {
@@ -1376,14 +1376,16 @@ func (s Seen) IsSeen() bool {
 	return s != SeenUndef
 }
 
-// luby implements luby sequence generation
+// Luby uses the Luby algorithm to generate a restart sequence from factor y
+// and current number of restarts x.
+//
 //		Finite subsequences of the Luby-sequence:
 //		0: 1
 //		1: 1 1 2
 //		2: 1 1 2 1 1 2 4
 //		3: 1 1 2 1 1 2 4 1 1 2 1 1 2 4 8
 //		...
-func luby(y float64, x int) float64 {
+func Luby(y float64, x int) float64 {
 	size, seq := 1, 0
 	for size < x+1 {
 		seq++

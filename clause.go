@@ -134,6 +134,16 @@ type ClauseHeader struct {
 // to signal that a clause should be deleted.
 type Mark uint8
 
+// HasAny returns true if and only if m contains any of the bits marked in mm.
+func (m Mark) HasAny(mm Mark) bool {
+	return m&mm != 0
+}
+
+// HasAll returns true if and only if m contains all of the bits marked in mm.
+func (m Mark) HasAll(mm Mark) bool {
+	return m&mm != mm
+}
+
 // Marks that are used by the package's DPLL solver.  Use of any Mark constants
 // in not required in a custom solver.
 const (

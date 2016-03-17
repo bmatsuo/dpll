@@ -7,6 +7,39 @@ package dpll
 
 import "container/heap"
 
+// activityQueue is a heap with special access methods.
+type activityQueue maxActiveHeap
+
+func newActivityQueue(activity *[]float64) *activityQueue {
+	return (*activityQueue)(newMaxActiveHeap(activity))
+}
+
+func (q *activityQueue) Len() int {
+	return (*maxActiveHeap)(q).Len()
+}
+
+// this is super confusing. the literature needs to be consulted to figure out
+// if max activity or min activity is really desired.
+func (q *activityQueue) RemoveMin() Var {
+	return heap.Pop((*maxActiveHeap)(q)).(Var)
+}
+
+func (q *activityQueue) Contains(v Var) bool {
+	return (*maxActiveHeap)(q).Contains(v)
+}
+
+func (q *activityQueue) Decrease(v Var) {
+	heap.Fix((*maxActiveHeap)(q), q.index[v])
+}
+
+func (q *activityQueue) Rebuild(vs []Var) {
+	(*maxActiveHeap)(q).Rebuild(vs)
+}
+
+func (q *activityQueue) Push(v Var) {
+	(*maxActiveHeap)(q).Push(v)
+}
+
 // maxActiveHeap is a heap.Interface that prioritizes variables by max
 // activity.
 type maxActiveHeap struct {
