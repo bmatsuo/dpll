@@ -94,7 +94,7 @@ func (o *occLists) CleanAll() {
 func (o *occLists) Clean(p Lit) {
 	occs := o.occs[p]
 	if len(occs) == 0 {
-		panic("no occurances")
+		panic("no occurrences")
 	}
 	var j int
 	for i := range occs {
