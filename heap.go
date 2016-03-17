@@ -18,10 +18,9 @@ func (q *activityQueue) Len() int {
 	return (*maxActiveHeap)(q).Len()
 }
 
-// this is super confusing. the literature needs to be consulted to figure out
-// if max activity or min activity is really desired.
-func (q *activityQueue) RemoveMin() Var {
-	return heap.Pop((*maxActiveHeap)(q)).(Var)
+// RemoveMax pops the highest-activity variable from q and returns it.
+func (q *activityQueue) RemoveMax() Var {
+	return (*maxActiveHeap)(q).RemoveMax()
 }
 
 func (q *activityQueue) Contains(v Var) bool {
@@ -95,7 +94,7 @@ func (h *maxActiveHeap) extend(v Var) {
 	}
 }
 
-func (h *maxActiveHeap) RemoveMin() Var {
+func (h *maxActiveHeap) RemoveMax() Var {
 	return heap.Pop(h).(Var)
 }
 

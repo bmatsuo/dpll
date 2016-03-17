@@ -1240,7 +1240,7 @@ func (d *DPLL) pickBranchLit() Lit {
 			next = VarUndef
 			break
 		}
-		next = d.orderHeap.RemoveMin()
+		next = d.orderHeap.RemoveMax()
 	}
 
 	if next.IsUndef() {
