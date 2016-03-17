@@ -55,3 +55,11 @@ func TestClause(t *testing.T) {
 		t.Fatalf("extra: %v (!= nil)", c5.ClauseExtra)
 	}
 }
+
+func TestClause_Subsumes(t *testing.T) {
+	// TODO: Subsumes is not used in the core DPLL solver so it doesn't need a test yet
+}
+
+func TestClause_Strengthen(t *testing.T) {
+	// TODO: Strengthen is not used in the core DPLL solver so it doesn't need a test yet
+}

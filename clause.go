@@ -116,6 +116,7 @@ func (c *Clause) Strengthen(p Lit) {
 		if lit == p {
 			copy(c.Lit[i:], c.Lit[i+1:])
 			c.Lit = c.Lit[:len(c.Lit)-1]
+
 			c.CalcAbstraction()
 			return
 		}
