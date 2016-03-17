@@ -106,7 +106,7 @@ type watcher struct {
 }
 
 func (w *watcher) IsDeleted() bool {
-	return w.c.Mark == 1
+	return w.c.Mark == MarkDel
 }
 
 func (w *watcher) Equal(w2 *watcher) bool {

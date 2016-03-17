@@ -439,7 +439,7 @@ func (d *DPLL) uncheckedEnqueue(p Lit, from *Clause) {
 }
 
 func isRemoved(c *Clause) bool {
-	return c.Mark == 1
+	return c.Mark == MarkDel
 }
 
 func (d *DPLL) locked(c *Clause) bool {
@@ -511,7 +511,7 @@ func (d *DPLL) removeClause(c *Clause) {
 	if d.locked(c) {
 		d.vardata[c.Lit[0].Var()].Reason = nil
 	}
-	c.Mark = 1
+	c.Mark = MarkDel
 	// no need to free
 }
 

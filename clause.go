@@ -5,15 +5,6 @@
 
 package dpll
 
-// ClauseHeader contains Clause metadata that can be inherited from other
-// clauses.
-type ClauseHeader struct {
-	Mark      byte
-	Learnt    bool
-	Relocated bool
-	*ClauseExtra
-}
-
 // Clause is a disjunction of literals.
 type Clause struct {
 	ClauseHeader
@@ -128,3 +119,23 @@ func (c *Clause) Strengthen(p Lit) {
 		}
 	}
 }
+
+// ClauseHeader contains Clause metadata that can be inherited from other
+// clauses.
+type ClauseHeader struct {
+	Mark      Mark
+	Learnt    bool
+	Relocated bool // this seems unnecessary
+	*ClauseExtra
+}
+
+// Mark is a small scratch space that can be used to flag clauses for
+// application dependent purposes.  The DPLL type in this package sets the Mark
+// to signal that a clause should be deleted.
+type Mark uint8
+
+// Marks that are used by the package's DPLL solver.  Use of any Mark constants
+// in not required in a custom solver.
+const (
+	MarkDel Mark = 1 // The marked clause should be deleted
+)
