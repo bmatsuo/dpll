@@ -219,6 +219,8 @@ func New(opt *Opt) *DPLL {
 	d.seen = []Seen{0}
 	d.polarity = []bool{true}
 	d.upolarity = []LBool{LUndef}
+	d.decision = []bool{false}
+	d.initRand()
 	return d
 }
 
@@ -709,8 +711,8 @@ func (d *DPLL) propagate() *Clause {
 // Currently removal of satisfied clauses is all the simplification provided
 // but additional logic may be added in forked implementations.
 func (d *DPLL) Simplify() bool {
-	if d.decisionLevel() == 0 {
-		panic("decision level zero")
+	if d.decisionLevel() != 0 {
+		panic("non-root decision level")
 	}
 
 	if !d.ok || d.propagate() != nil {

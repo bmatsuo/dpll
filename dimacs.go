@@ -17,10 +17,10 @@ import (
 // deserialization.
 type Solver interface {
 	NumVar() int
-	NewVar(upol LBool, dvar bool)
-	AddClause(p ...Lit)
-	Solve(assumptions ...Lit)
-	SolveLimited(assumptions ...Lit)
+	NewVar(upol LBool, dvar bool) Var
+	AddClause(p ...Lit) bool
+	Solve(assumptions ...Lit) bool
+	SolveLimited(assumptions ...Lit) LBool
 }
 
 // DecodeFile decodes a CNF problem in DIMACS format from a file at the given
