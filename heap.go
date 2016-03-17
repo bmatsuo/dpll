@@ -19,7 +19,7 @@ func (q *activityQueue) Len() int {
 }
 
 // RemoveMax pops the highest-activity variable from q and returns it.
-func (q *activityQueue) RemoveMax() Var {
+func (q *activityQueue) RemoveMax() (v Var, ok bool) {
 	return (*maxActiveHeap)(q).RemoveMax()
 }
 
@@ -94,8 +94,11 @@ func (h *maxActiveHeap) extend(v Var) {
 	}
 }
 
-func (h *maxActiveHeap) RemoveMax() Var {
-	return heap.Pop(h).(Var)
+func (h *maxActiveHeap) RemoveMax() (v Var, ok bool) {
+	if len(h.vars) == 0 {
+		return 0, false
+	}
+	return heap.Pop(h).(Var), true
 }
 
 func (h *maxActiveHeap) Contains(v Var) bool {
