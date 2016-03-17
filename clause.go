@@ -19,9 +19,7 @@ func NewClause(ps []Lit, extra bool, learnt bool) *Clause {
 	c.Learnt = learnt
 	if extra {
 		c.ClauseExtra = &ClauseExtra{}
-		if learnt {
-			c.Activity = 0
-		} else {
+		if !learnt {
 			c.CalcAbstraction()
 		}
 	}
@@ -45,6 +43,9 @@ func NewClauseFrom(from *Clause, extra bool) *Clause {
 	return c
 }
 
+/*
+// It is not clear yet if this abstraction can improve performance.
+
 type clauseAllocator struct {
 	ForceExtra bool
 }
@@ -58,13 +59,14 @@ func (ca *clauseAllocator) From(c *Clause) *Clause {
 	extra := c.Learnt || ca.ForceExtra
 	return NewClauseFrom(c, extra)
 }
+*/
 
 // CalcAbstraction computes and stores an abstraction of variables in c like a
 // checksum.
 func (c *Clause) CalcAbstraction() {
 	var abs uint32
 	for _, lit := range c.Lit {
-		abs |= 1 << (uint32(lit.Var()) & 31)
+		abs |= 1 << (lit.Var() & 31)
 	}
 	c.Abstraction = abs
 }
