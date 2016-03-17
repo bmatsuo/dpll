@@ -163,7 +163,7 @@ type DPLL struct {
 	upolarity []LBool
 	decision  []bool
 	vardata   []varData
-	// watches OccList // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
+	watches   *occLists // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
 
 	orderHeap *maxActiveHeap
 
@@ -202,7 +202,7 @@ type DPLL struct {
 func New(opt *Opt) *DPLL {
 	d := &DPLL{}
 	d.Opt = *mergeOptDefault(opt)
-	// d.watches = WatcherDeleted(d.ca)
+	d.watches = newOccLists()
 	d.orderHeap = newMaxActiveHeap(&d.activity)
 	d.ok = true
 	d.claIncr = 1
@@ -269,9 +269,8 @@ func (d *DPLL) NewVar(upol LBool, dvar bool) Var {
 		d.decision = append(d.decision, false)
 	}
 
-	// TODO
-	//d.watches.init(NewLit(v, false))
-	//d.watches.init(NewLit(v, true))
+	d.watches.Init(NewLit(v, false))
+	d.watches.Init(NewLit(v, true))
 
 	d.SetDecision(v, dvar)
 
@@ -523,11 +522,11 @@ func (d *DPLL) detachClause(c *Clause, strict bool) {
 
 	// stict or lazy detatching
 	if strict {
-		// remove(watches[~c[0]], Watcher(cr, c[1]));
-		// remove(watches[~c[1]], Watcher(cr, c[0]));
+		d.watches.Remove(c.Lit[0].Inverse(), watcher{c, c.Lit[1]})
+		d.watches.Remove(c.Lit[1].Inverse(), watcher{c, c.Lit[0]})
 	} else {
-		// watches.smudge(~c[0]);
-		// watches.smudge(~c[1]);
+		d.watches.Smudge(c.Lit[0].Inverse())
+		d.watches.Smudge(c.Lit[1].Inverse())
 	}
 
 	d.ngarbLit += uint64(c.Len())
@@ -1300,8 +1299,8 @@ func (d *DPLL) attachClause(c *Clause) {
 		panic("small clause")
 	}
 
-	//watches[~c[0]].push(Watcher(cr, c[1]));
-	//watches[~c[1]].push(Watcher(cr, c[0]));
+	d.watches.Push(c.Lit[0].Inverse(), watcher{c, c.Lit[1]})
+	d.watches.Push(c.Lit[1].Inverse(), watcher{c, c.Lit[0]})
 
 	if c.Learnt {
 		d.nlearnt++

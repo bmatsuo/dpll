@@ -40,7 +40,9 @@ func (b LBool) IsUndef() bool {
 
 // Equal returns true iff b and b2 are equivalent.
 func (b LBool) Equal(b2 LBool) bool {
-	return b&2 == b2&2 || !(b&2 != 0 && b == b2)
+	// NOTE: the b&2 == 0 check is a little pedantic. it seems to presurpose
+	// that values other than the three enumerated constants can be used.
+	return (b&2 != 0 && b2&2 != 0) || (b&2 == 0 && b == b2)
 }
 
 // And returns the conjunction of b and b2.
