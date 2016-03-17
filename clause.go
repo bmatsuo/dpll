@@ -66,7 +66,7 @@ func (ca *clauseAllocator) From(c *Clause) *Clause {
 func (c *Clause) CalcAbstraction() {
 	var abs uint32
 	for _, lit := range c.Lit {
-		abs |= 1 << (lit.Var() & 31)
+		abs |= 1 << ((lit.Var() - 1) & 31)
 	}
 	c.Abstraction = abs
 }
