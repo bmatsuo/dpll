@@ -1311,7 +1311,7 @@ func (d *DPLL) pickBranchLit() Lit {
 	if next.IsUndef() {
 		return LitUndef
 	}
-	if d.upolarity[next].IsUndef() {
+	if !d.upolarity[next].IsUndef() {
 		return NewLit(next, d.upolarity[next].IsTrue())
 	}
 	if d.RandPol {
