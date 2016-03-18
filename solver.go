@@ -329,6 +329,9 @@ func (d *DPLL) level(v Var) int {
 }
 
 func (d *DPLL) insertVarOrder(v Var) {
+	if !d.orderHeap.Contains(v) && d.decision[v] {
+		d.orderHeap.Push(v)
+	}
 }
 
 func (d *DPLL) varDecayActivity() {
@@ -694,7 +697,7 @@ func (d *DPLL) propagate() *Clause {
 		pnot := p.Inverse()
 		d.qhead++
 		ws := d.watches.Lookup(p)
-		d.npropogations++
+		numprops++
 
 		var j int
 	NEXTCLAUSE:
@@ -715,7 +718,7 @@ func (d *DPLL) propagate() *Clause {
 			}
 			i++
 
-			// if first watch is then clause is already satisfied
+			// if first watch is true then clause is already satisfied
 			first := c.Lit[0]
 			if first != block && d.ValueLit(first).IsTrue() {
 				ws[j] = watcher{c, first}
@@ -726,9 +729,12 @@ func (d *DPLL) propagate() *Clause {
 			// look for new watch
 			for k := 2; k < c.Len(); k++ {
 				if !d.ValueLit(c.Lit[k]).IsFalse() {
-					c.Lit[1] = c.Lit[k]
-					c.Lit[k] = pnot
-					d.watches.Push(c.Lit[1].Inverse(), watcher{c, first})
+					c.Lit[1], c.Lit[k] = c.Lit[k], pnot
+					if c.Lit[1].Inverse() == p {
+						ws = d.watches.Occurrences(p)
+					} else {
+						d.watches.Push(c.Lit[1].Inverse(), watcher{c, first})
+					}
 					continue NEXTCLAUSE
 				}
 			}
@@ -740,6 +746,7 @@ func (d *DPLL) propagate() *Clause {
 				conflict = c
 				d.qhead = len(d.trail)
 				j += copy(ws[j:], ws[i:])
+				i = len(ws)
 			} else {
 				d.uncheckedEnqueue(first, c)
 			}
@@ -1213,7 +1220,7 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 		for !d.isSeen(d.trail[index].Var()) {
 			index--
 		}
-		p = d.trail[index+1]
+		p = d.trail[index]
 		confl = d.reason(p.Var())
 		d.seen[p.Var()] = SeenUndef
 		pathc--
@@ -1272,7 +1279,7 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 	}
 
 	for j := range d.analyzeToClear {
-		d.seen[d.analyzeToClear[j]] = SeenUndef
+		d.seen[d.analyzeToClear[j].Var()] = SeenUndef
 	}
 	// d.seen is now cleared
 
@@ -1283,13 +1290,14 @@ func (d *DPLL) pickBranchLit() Lit {
 	next := VarUndef
 
 	if d.randf64() < d.RandVarFreq && d.orderHeap.Len() == 0 {
+		log.Printf("random from heap")
 		next = d.orderHeap.vars[d.randn(d.orderHeap.Len())]
 		if d.Value(next).IsUndef() && d.decision[next] {
 			d.nrandDecisions++
 		}
 	}
 
-	for next.IsUndef() || d.Value(next).IsUndef() || !d.decision[next] {
+	for next.IsUndef() || !d.Value(next).IsUndef() || !d.decision[next] {
 		if d.orderHeap.Len() == 0 {
 			next = VarUndef
 			break
@@ -1374,7 +1382,7 @@ func (d *DPLL) cancelUntil(level int) {
 	if d.decisionLevel() <= level {
 		return
 	}
-	for c := len(d.trail) - 1; c >= d.trailLim[c]; c-- {
+	for c := len(d.trail) - 1; c >= d.trailLim[level]; c-- {
 		v := d.trail[c].Var()
 		d.assigns[v] = LUndef
 		if d.PhaseSaving > 1 || d.PhaseSaving == 1 && c > d.trailLim[len(d.trailLim)-1] {

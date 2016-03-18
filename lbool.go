@@ -23,6 +23,20 @@ func Bool(b bool) LBool {
 	return LFalse
 }
 
+var lboolStrings = []string{
+	LTrue:  "LTrue",
+	LFalse: "LFalse",
+	LUndef: "LUndef",
+}
+
+// String returns the string representation of an LBool
+func (b LBool) String() string {
+	if int(b) >= len(lboolStrings) {
+		return "LInvalid"
+	}
+	return lboolStrings[b]
+}
+
 // IsTrue returns true if b is equivalent to LTrue
 func (b LBool) IsTrue() bool {
 	return b.Equal(LTrue)
@@ -60,7 +74,7 @@ func (b LBool) Or(b2 LBool) LBool {
 // Xor returns the exclusive or of b and b2.
 func (b LBool) Xor(b2 bool) LBool {
 	if b2 {
-		return b ^ 1
+		return b&1 ^ 1
 	}
 	return b
 }
