@@ -11,12 +11,13 @@ import (
 )
 
 func main() {
+	verbosity := flag.Int("v", 1, "verbosity level")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		log.Fatalf("%s expects exactly one argument", os.Args[0])
 	}
 	d := dpll.New(&dpll.Opt{
-		Verbosity: 1,
+		Verbosity: *verbosity,
 	})
 	parseStart := time.Now()
 	_, err := dpll.DecodeFile(d, flag.Arg(0))
