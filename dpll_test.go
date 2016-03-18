@@ -36,7 +36,6 @@ func TestSolver_Solve_unsat(t *testing.T) {
 	}
 }
 
-/*
 func TestSolver_Solve_unsat_factoring_2_3(t *testing.T) {
 	d := New(nil)
 	err := DecodeFile(d, "testdata/factoring_2_3_UNSAT.cnf")
@@ -53,7 +52,6 @@ func TestSolver_Solve_unsat_factoring_2_3(t *testing.T) {
 		}
 	}
 }
-*/
 
 func TestSolver_Solve_sat_factoring_3_5(t *testing.T) {
 	d := New(nil)
@@ -67,8 +65,6 @@ func TestSolver_Solve_sat_factoring_3_5(t *testing.T) {
 	}
 }
 
-/*
-// TODO without simplification this may be too difficult for a normal test
 func TestSolver_Solve_unsat_factoring_3_5(t *testing.T) {
 	d := New(nil)
 	err := DecodeFile(d, "testdata/factoring_3_5_UNSAT.cnf")
@@ -85,7 +81,6 @@ func TestSolver_Solve_unsat_factoring_3_5(t *testing.T) {
 		}
 	}
 }
-*/
 
 func TestSolver_Solve_sat_factoring_5_7(t *testing.T) {
 	d := New(nil)
