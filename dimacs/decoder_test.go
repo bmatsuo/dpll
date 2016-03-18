@@ -32,6 +32,12 @@ func TestDecoder(t *testing.T) {
 				{-1},
 			}},
 		},
+		{
+			"p cnf 3 1\nc a comment\n-1 0\n",
+			&Problem{3, [][]Lit{
+				{-1},
+			}},
+		},
 	}
 
 	for i, test := range tests {

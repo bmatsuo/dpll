@@ -605,7 +605,7 @@ func (d *DPLL) relocAll() (numremove int) {
 }
 
 func (d *DPLL) satisfied(c *Clause) bool {
-	for i := 0; i < c.Len(); i++ {
+	for i := range c.Lit {
 		if d.ValueLit(c.Lit[i]).IsTrue() {
 			return true
 		}
@@ -635,11 +635,11 @@ func (d *DPLL) removeSatisfied(ptr *[]*Clause) {
 			d.removeClause(c)
 		} else {
 			if !d.ValueLit(c.Lit[0]).IsUndef() || !d.ValueLit(c.Lit[1]).IsUndef() {
-				panic("literals have values")
+				panic(fmt.Sprintf("literals have value(s) %v %v", d.ValueLit(c.Lit[0]), d.ValueLit(c.Lit[1])))
 			}
 
 			// trim clause
-			for k := 2; k < c.Len(); i++ {
+			for k := 2; k < c.Len(); k++ {
 				if d.ValueLit(c.Lit[k]).IsFalse() {
 					c.Lit[k] = c.Lit[c.Len()-1]
 					c.Lit = c.Lit[:c.Len()-1]
@@ -650,7 +650,7 @@ func (d *DPLL) removeSatisfied(ptr *[]*Clause) {
 			j++
 		}
 	}
-	(*ptr) = cs[:len(cs)-i+j]
+	(*ptr) = cs[:j]
 }
 
 func (d *DPLL) reduceDB() {
@@ -695,10 +695,61 @@ func (d *DPLL) propagate() *Clause {
 
 	for d.qhead < len(d.trail) {
 		p := d.trail[d.qhead]
+		pnot := p.Inverse()
 		d.qhead++
-		// TODO
-		_ = p
-		// ws := d.watches.lookup(p)
+		ws := d.watches.Lookup(p)
+		d.npropogations++
+
+		var j int
+	NEXTCLAUSE:
+		for i := 0; i < len(ws); {
+			block := ws[i].blocker
+			if d.ValueLit(block).IsTrue() {
+				j++
+				i++
+				continue
+			}
+
+			// make sure the false literal is at index 1
+			c := ws[i].c
+			if c.Lit[0] == pnot {
+				c.Lit[0], c.Lit[1] = c.Lit[1], pnot
+			} else if c.Lit[1] != pnot {
+				panic(fmt.Sprintf("index 1 %v (!= %v)", c.Lit[1], pnot))
+			}
+			i++
+
+			// if first watch is then clause is already satisfied
+			first := c.Lit[0]
+			if first != block && d.ValueLit(first).IsTrue() {
+				ws[j] = watcher{c, first}
+				j++
+				continue
+			}
+
+			// look for new watch
+			for k := 2; k < c.Len(); k++ {
+				if !d.ValueLit(c.Lit[k]).IsFalse() {
+					c.Lit[1] = c.Lit[k]
+					c.Lit[k] = pnot
+					d.watches.Push(c.Lit[1].Inverse(), watcher{c, first})
+					continue NEXTCLAUSE
+				}
+			}
+
+			// didn't find watch -- clause is unit under assignment
+			ws[j] = watcher{c, first}
+			j++
+			if d.ValueLit(first).IsFalse() {
+				conflict = c
+				d.qhead = len(d.trail)
+				j += copy(ws[j:], ws[i:])
+			} else {
+				d.uncheckedEnqueue(first, c)
+			}
+		}
+		d.watches.occs[p] = ws[:j]
+
 	}
 
 	d.npropogations += uint64(numprops)
@@ -1269,27 +1320,32 @@ func (d *DPLL) addClause(c []Lit) bool {
 
 	sort.Sort(litSlice(c))
 
+	//log.Printf("PS %d", len(c))
 	var j int
-	for i, p := 0, Lit(0); i < len(c); i++ {
+	for i, p := 0, LitUndef; i < len(c); i++ {
 		if d.ValueLit(c[i]).IsTrue() || c[i] == p.Inverse() {
 			return true
-		} else if d.ValueLit(c[i]).IsTrue() && c[i] != p {
+		} else if !d.ValueLit(c[i]).IsFalse() && c[i] != p {
 			p = c[i]
 			c[j] = p
 			j++
 		}
 	}
 	c = c[:j]
+	//log.Printf("PS %d", len(c))
 
 	switch len(c) {
 	case 0:
+		//log.Printf("ADD0")
 		d.ok = false
 		return false
 	case 1:
+		//log.Printf("ADD1")
 		d.uncheckedEnqueue(c[0], nil)
 		d.ok = d.propagate() == nil
 		return d.ok
 	default:
+		//log.Printf("ADD")
 		c := NewClause(c, false, false)
 		d.clauses = append(d.clauses, c)
 		d.attachClause(c)

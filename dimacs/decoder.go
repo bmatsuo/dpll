@@ -49,7 +49,7 @@ func (r *Decoder) Header() *Header {
 	return h
 }
 
-func (r *Decoder) skipComments() {
+func (r *Decoder) skipComments() (ok bool) {
 	for r.s.Scan() {
 		b := r.s.Bytes()
 		if len(b) == 0 {
@@ -59,9 +59,10 @@ func (r *Decoder) skipComments() {
 			continue
 		}
 		r.htext = b
-		return
+		return true
 	}
 	r.err = r.s.Err()
+	return false
 }
 
 func (r *Decoder) readHeader() {
@@ -69,8 +70,7 @@ func (r *Decoder) readHeader() {
 		return
 	}
 
-	r.skipComments()
-	if r.err != nil {
+	if !r.skipComments() && r.err != nil {
 		return
 	}
 	if len(r.htext) == 0 || r.htext[0] != 'p' {
@@ -153,7 +153,7 @@ func (r *Decoder) Decode() bool {
 		return false
 	}
 
-	if !r.s.Scan() {
+	if !r.skipComments() {
 		r.err = r.s.Err()
 		return false
 	}

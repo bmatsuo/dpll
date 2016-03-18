@@ -17,6 +17,7 @@ import (
 // deserialization.
 type Solver interface {
 	NumVar() int
+	NumClause() int
 	NewVar(upol LBool, dvar bool) Var
 	AddClause(p ...Lit) bool
 	Solve(assumptions ...Lit) bool
@@ -44,10 +45,6 @@ func DecodeFile(s Solver, path string) error {
 // from r.
 func Decode(s Solver, r io.Reader) error {
 	dec := dimacs.NewDecoder(r)
-	h := dec.Header()
-	if h != nil {
-		return dec.Err()
-	}
 	for dec.Decode() {
 		dc := dec.Clause()
 		ls := make([]Lit, len(dc))
@@ -61,9 +58,11 @@ func Decode(s Solver, r io.Reader) error {
 		for _, p := range ls {
 			for p.Var() > Var(s.NumVar()) {
 				s.NewVar(LUndef, true)
+				//log.Printf("Var(%d)", v)
 			}
 		}
 		s.AddClause(ls...)
+		//log.Printf("AddClause(%v) => %d", dc, s.NumClause())
 	}
 	if dec.Err() != nil {
 		return dec.Err()
