@@ -73,8 +73,8 @@ func (b LBool) Or(b2 LBool) LBool {
 
 // Xor returns the exclusive or of b and b2.
 func (b LBool) Xor(b2 bool) LBool {
-	if b2 {
-		return b&1 ^ 1
+	if !b.IsUndef() && b2 {
+		return b ^ 1
 	}
 	return b
 }

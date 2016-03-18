@@ -704,6 +704,7 @@ func (d *DPLL) propagate() *Clause {
 		for i := 0; i < len(ws); {
 			block := ws[i].blocker
 			if d.ValueLit(block).IsTrue() {
+				ws[j] = ws[i]
 				j++
 				i++
 				continue
@@ -937,19 +938,19 @@ func (d *DPLL) search(maxconflict int) LBool {
 				d.learntAdjustConfl *= d.LearntAdjustIncr
 				d.learntAdjustCnt = int(d.learntAdjustConfl)
 				d.maxLearnt *= d.LearntIncr
-			}
 
-			if d.Verbosity >= 1 {
-				decadj := len(d.trail)
-				if len(d.trailLim) > 0 {
-					decadj = d.trailLim[0]
+				if d.Verbosity >= 1 {
+					decadj := len(d.trail)
+					if len(d.trailLim) > 0 {
+						decadj = d.trailLim[0]
+					}
+					log.Printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |",
+						d.nconflicts,
+						d.ndecVars-uint64(decadj), d.NumClause(), d.nclauseLit,
+						int(d.maxLearnt), d.NumLearn(), float64(d.nlearntLit)/float64(d.NumLearn()),
+						d.progressEstimate()*100,
+					)
 				}
-				log.Printf("| %9d | %7d %8d %8d | %8d %8d %6.0f | %6.3f %% |",
-					d.nconflicts,
-					d.ndecVars-uint64(decadj), d.NumClause(), d.nclauseLit,
-					int(d.maxLearnt), d.NumLearn(), float64(d.nlearntLit)/float64(d.NumLearn()),
-					d.progressEstimate()*100,
-				)
 			}
 		} else { // no conflict; c == nil
 			if (maxconflict >= 0 && numconflict >= maxconflict) || !d.withinBudget() {
@@ -1220,7 +1221,8 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 		for !d.isSeen(d.trail[index].Var()) {
 			index--
 		}
-		p = d.trail[index]
+		index--
+		p = d.trail[index+1]
 		confl = d.reason(p.Var())
 		d.seen[p.Var()] = SeenUndef
 		pathc--
@@ -1237,8 +1239,7 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 	if d.CCMin == CCMinDeep {
 		j = 1
 		for i = 1; i < len(outLearnt); i++ {
-			v := outLearnt[i].Var()
-			if d.reason(v) == nil {
+			if d.reason(outLearnt[i].Var()) == nil {
 				outLearnt[j] = outLearnt[i]
 				j++
 			}
@@ -1246,8 +1247,7 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 	} else if d.CCMin == CCMinBasic {
 		j = 1
 		for i = 1; i < len(outLearnt); i++ {
-			v := outLearnt[i].Var()
-			c := d.reason(v)
+			c := d.reason(outLearnt[i].Var())
 			if c == nil {
 				outLearnt[j] = outLearnt[i]
 				j++
@@ -1391,8 +1391,8 @@ func (d *DPLL) cancelUntil(level int) {
 		d.insertVarOrder(v)
 	}
 	d.qhead = d.trailLim[level]
-	d.trail = d.trail[:len(d.trail)-d.trailLim[level]]
-	d.trailLim = d.trailLim[:len(d.trailLim)-level]
+	d.trail = d.trail[:d.trailLim[level]]
+	d.trailLim = d.trailLim[:level]
 }
 
 // CCMinMode controls conflict clause minimization.
