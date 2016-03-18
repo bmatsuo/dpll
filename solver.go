@@ -564,6 +564,7 @@ func (d *DPLL) garbageCollect() {
 
 func (d *DPLL) relocAll() (numremove int) {
 	// TODO: all watchers
+	d.watches.CleanAll()
 
 	for i := range d.trail {
 		v := d.trail[i].Var()
@@ -573,7 +574,6 @@ func (d *DPLL) relocAll() (numremove int) {
 			if isRemoved(d.reason(v)) {
 				panic("reason removed")
 			}
-			// d.ca.reloc(d.reason(v), to)
 		}
 	}
 
@@ -581,7 +581,6 @@ func (d *DPLL) relocAll() (numremove int) {
 	learnt := d.learnt[:0]
 	for i := range d.learnt {
 		if !isRemoved(d.learnt[i]) {
-			// d.ca.reloc(d.learnt[i], to)
 			learnt = append(learnt, d.learnt[i])
 		} else {
 			numremove++
@@ -593,7 +592,6 @@ func (d *DPLL) relocAll() (numremove int) {
 	clauses := d.clauses[:0]
 	for i := range d.clauses {
 		if !isRemoved(d.clauses[i]) {
-			// d.ca.reloc(d.clauses[i], to)
 			clauses = append(clauses, d.clauses[i])
 		} else {
 			numremove++
@@ -687,8 +685,6 @@ func (cs clausesByActivity) Swap(i, j int) {
 
 // propagate all equeued facts.  If a conflict arises the conflicting clause is
 // returned.  The propagation queue will be empty after propagate returns.
-//
-// TODO
 func (d *DPLL) propagate() *Clause {
 	var conflict *Clause
 	var numprops int
@@ -833,11 +829,12 @@ func (d *DPLL) SolveLimited(assump ...Lit) LBool {
 // solve searches for a model that respects the d.assumptions
 func (d *DPLL) solve() LBool {
 	d.startTime = time.Now()
-	d.model = nil
-	d.conflict = nil
 	if !d.ok {
 		return LFalse
 	}
+
+	d.model = nil
+	d.conflict = nil
 
 	defer d.checkGarbageFrac(0, true)
 
@@ -1015,7 +1012,9 @@ func (d *DPLL) progressEstimate() float64 {
 	return progress / float64(d.NumVar())
 }
 
-func (d *DPLL) printStats() {
+// PrintStats prints statistics about solving meant to be called after solving
+// has terminated.
+func (d *DPLL) PrintStats() {
 	runsec := d.runtime()
 	var memused float64 // TODO
 	log.Printf("restarts              : %d", d.nstarts)
@@ -1075,14 +1074,14 @@ func (d *DPLL) Implies(assumps []Lit) (assign []Lit, ok bool) {
 // Model returns assignments found in the last call to Solve.  If Solve could
 // not find a model (perhaps under assupmtions) Model returns nil.
 func (d *DPLL) Model() []LBool {
-	return nil
+	return d.model
 }
 
 // Conflict returns the final, non-empty clause expressed in assumptions if
 // Solve could not find a model.  If the last call to Solve found a model then
 // Conflict returns nil.
 func (d *DPLL) Conflict() []Lit {
-	return nil
+	return d.conflict
 }
 
 func (d *DPLL) isRedundant(p Lit) bool {

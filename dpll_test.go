@@ -9,19 +9,26 @@ import "testing"
 
 func TestSolver_Solve_sat_factoring_2_3(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/factoring_2_3.cnf")
+	ok, err := DecodeFile(d, "testdata/factoring_2_3.cnf")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !ok {
+		t.Errorf("not ok")
 	}
 	sat := d.Solve()
 	if !sat {
 		t.Errorf("not satisfiable")
+	}
+	model := d.Model()
+	if len(model) != d.NumVar()+1 {
+		t.Errorf("model length: %d (!= %d)", len(model), d.NumVar()+1)
 	}
 }
 
 func TestSolver_Solve_unsat(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/unsat.cnf")
+	_, err := DecodeFile(d, "testdata/unsat.cnf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,12 +40,16 @@ func TestSolver_Solve_unsat(t *testing.T) {
 		for v := 1; v < len(model); v++ {
 			t.Errorf("Var(%d) == %v", v, model[v])
 		}
+	}
+	conflict := d.Conflict()
+	if len(conflict) == 0 {
+		t.Errorf("empty conflict")
 	}
 }
 
 func TestSolver_Solve_unsat_factoring_2_3(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/factoring_2_3_UNSAT.cnf")
+	_, err := DecodeFile(d, "testdata/factoring_2_3_UNSAT.cnf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,24 +61,35 @@ func TestSolver_Solve_unsat_factoring_2_3(t *testing.T) {
 		for v := 1; v < len(model); v++ {
 			t.Errorf("Var(%d) == %v", v, model[v])
 		}
+	}
+	conflict := d.Conflict()
+	if len(conflict) == 0 {
+		t.Errorf("empty conflict")
 	}
 }
 
 func TestSolver_Solve_sat_factoring_3_5(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/factoring_3_5.cnf")
+	ok, err := DecodeFile(d, "testdata/factoring_3_5.cnf")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !ok {
+		t.Errorf("not ok")
 	}
 	sat := d.Solve()
 	if !sat {
 		t.Errorf("not satisfiable")
 	}
+	model := d.Model()
+	if len(model) != d.NumVar()+1 {
+		t.Errorf("model length: %d (!= %d)", len(model), d.NumVar()+1)
+	}
 }
 
 func TestSolver_Solve_unsat_factoring_3_5(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/factoring_3_5_UNSAT.cnf")
+	_, err := DecodeFile(d, "testdata/factoring_3_5_UNSAT.cnf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,16 +102,27 @@ func TestSolver_Solve_unsat_factoring_3_5(t *testing.T) {
 			t.Errorf("Var(%d) == %v", v, model[v])
 		}
 	}
+	conflict := d.Conflict()
+	if len(conflict) == 0 {
+		t.Errorf("empty conflict")
+	}
 }
 
 func TestSolver_Solve_sat_factoring_5_7(t *testing.T) {
 	d := New(nil)
-	err := DecodeFile(d, "testdata/factoring_5_7.cnf")
+	ok, err := DecodeFile(d, "testdata/factoring_5_7.cnf")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !ok {
+		t.Errorf("not ok")
 	}
 	sat := d.Solve()
 	if !sat {
 		t.Errorf("not satisfiable")
+	}
+	model := d.Model()
+	if len(model) != d.NumVar()+1 {
+		t.Errorf("model length: %d (!= %d)", len(model), d.NumVar()+1)
 	}
 }

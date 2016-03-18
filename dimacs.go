@@ -32,10 +32,10 @@ type Solver interface {
 //		if err != nil {
 //			// ...
 //		}
-func DecodeFile(s Solver, path string) error {
+func DecodeFile(s Solver, path string) (ok bool, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer f.Close()
 	return Decode(s, f)
@@ -43,7 +43,7 @@ func DecodeFile(s Solver, path string) error {
 
 // Decode is like DecodeFile. But, Decode reads a DIMACS formatted byte stream
 // from r.
-func Decode(s Solver, r io.Reader) error {
+func Decode(s Solver, r io.Reader) (ok bool, err error) {
 	dec := dimacs.NewDecoder(r)
 	for dec.Decode() {
 		dc := dec.Clause()
@@ -61,11 +61,14 @@ func Decode(s Solver, r io.Reader) error {
 				//log.Printf("Var(%d)", v)
 			}
 		}
-		s.AddClause(ls...)
+		if !s.AddClause(ls...) {
+			// a contradiction in the clauses was found
+			return false, nil
+		}
 		//log.Printf("AddClause(%v) => %d", dc, s.NumClause())
 	}
 	if dec.Err() != nil {
-		return dec.Err()
+		return false, dec.Err()
 	}
-	return nil
+	return true, nil
 }

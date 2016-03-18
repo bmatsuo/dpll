@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bmatsuo/dpll"
 )
@@ -16,14 +18,45 @@ func main() {
 	d := dpll.New(&dpll.Opt{
 		Verbosity: 1,
 	})
-	err := dpll.DecodeFile(d, flag.Arg(0))
+	parseStart := time.Now()
+	_, err := dpll.DecodeFile(d, flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
-	isSat := d.Solve()
-	if isSat {
-		log.Printf("SATISFIABLE")
+	parseEnd := time.Now()
+	log.Printf("============================[ Problem Statistics ]=============================")
+	if d.Verbosity >= 1 {
+		log.Printf("|  Number of variables:  %12d                                         |", d.NumVar())
+		log.Printf("|  Number of clauses:    %12d                                         |", d.NumClause())
+		dur := parseEnd.Sub(parseStart)
+		log.Printf("|  Parse time:           %12v                                         |", dur-dur%time.Microsecond)
+	}
+	if !d.Simplify() {
+		// TODO: handle output for non-tty outputs
+		if d.Verbosity >= 1 {
+			log.Printf("===============================================================================")
+			log.Printf("Solved by unit propagation")
+			d.PrintStats()
+			log.Println()
+		}
+		fmt.Fprintln(os.Stderr)
+		fmt.Println("UNSATISFIABLE")
+		os.Exit(20)
+	}
+
+	solution := d.SolveLimited()
+	if d.Verbosity >= 1 {
+		d.PrintStats()
+		fmt.Fprintln(os.Stderr)
+	}
+	if solution.IsTrue() {
+		fmt.Println("SATISFIABLE")
+		os.Exit(10)
+	} else if solution.IsFalse() {
+		fmt.Println("UNSATISFIABLE")
+		os.Exit(20)
 	} else {
-		log.Printf("UNSATISFIABLE")
+		fmt.Println("INDETERMINATE")
+		os.Exit(0)
 	}
 }
