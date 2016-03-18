@@ -2,9 +2,9 @@
 
 DPLL satisfiability solver based on [MiniSat](https://github.com/niklasso/minisat).
 
-The goal of the DPLL is to provide a library that applications can use for
-constraint solving.  A command line program is provided though it should not be
-expected to outperform MiniSat.
+The goal of project is to provide a SAT package that practical Go applications
+can use for constraint solving.  A command line program is provided though it
+should not be expected to outperform MiniSat.
 
 ##License (MIT)
 
