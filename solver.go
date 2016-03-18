@@ -48,7 +48,7 @@ var optDefault = &Opt{
 	RestartIncr:  2,
 	GarbageFrac:  0.20,
 
-	LearntFraction: 1 / 3,
+	LearntFraction: 1.0 / 3.0,
 	LearntIncr:     1.1,
 
 	LearntAdjustConfl: 100,
@@ -1265,6 +1265,10 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 		i = len(outLearnt)
 		j = len(outLearnt)
 	}
+
+	d.nmaxLit += uint64(len(outLearnt))
+	outLearnt = outLearnt[:j]
+	d.ntotLit += uint64(j)
 
 	// find the correct backtrack level
 	if len(outLearnt) != 1 {
