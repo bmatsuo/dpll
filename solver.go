@@ -1294,7 +1294,6 @@ func (d *DPLL) pickBranchLit() Lit {
 	next := VarUndef
 
 	if d.randf64() < d.RandVarFreq && d.orderHeap.Len() == 0 {
-		log.Printf("random from heap")
 		next = d.orderHeap.vars[d.randn(d.orderHeap.Len())]
 		if d.Value(next).IsUndef() && d.decision[next] {
 			d.nrandDecisions++
