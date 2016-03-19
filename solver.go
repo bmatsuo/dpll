@@ -273,8 +273,8 @@ func (d *DPLL) NewVar(upol LBool, dvar bool) Var {
 		d.decision = append(d.decision, false)
 	}
 
-	d.watches.Init(NewLit(v, false))
-	d.watches.Init(NewLit(v, true))
+	d.watches.Init(Literal(v, false))
+	d.watches.Init(Literal(v, true))
 
 	d.SetDecision(v, dvar)
 
@@ -381,7 +381,13 @@ func (d *DPLL) Value(v Var) LBool {
 
 // ValueLit returns the current value of lit.
 func (d *DPLL) ValueLit(lit Lit) LBool {
-	return d.assigns[lit.Var()].Xor(lit.IsPos())
+	if d.assigns[lit.Var()].IsUndef() {
+		return LUndef
+	}
+	if lit.IsNeg() {
+		return Bool(d.assigns[lit.Var()].IsFalse())
+	}
+	return Bool(d.assigns[lit.Var()].IsTrue())
 }
 
 // ValueModel returns the value of v in the last model.  The last call to Solve
@@ -393,7 +399,7 @@ func (d *DPLL) ValueModel(v Var) LBool {
 // ValueLitModel returns the value of lit in the last model.  The last call to
 // Solve must have returned true.
 func (d *DPLL) ValueLitModel(lit Lit) LBool {
-	return d.model[lit.Var()].Xor(lit.IsPos())
+	return d.model[lit.Var()].Xor(lit.IsNeg())
 }
 
 // NumAssign returns the number of assigned literals.
@@ -440,7 +446,10 @@ func (d *DPLL) uncheckedEnqueue(p Lit, from *Clause) {
 	if !d.ValueLit(p).IsUndef() {
 		panic("enqueued literal has a value")
 	}
-	d.assigns[p.Var()] = Bool(!p.IsPos())
+	if d.Verbosity >= 3 {
+		log.Printf("ASSIGN %v @ %d", p, d.decisionLevel())
+	}
+	d.assigns[p.Var()] = Bool(!p.IsNeg())
 	d.vardata[p.Var()] = varData{from, d.decisionLevel()}
 	d.trail = append(d.trail, p)
 }
@@ -661,6 +670,7 @@ func (d *DPLL) reduceDB() {
 	var i, j int
 	for ; i < len(d.learnt); i++ {
 		c := d.learnt[i]
+		// don't delete binary or locked clauses.
 		if c.Len() > 2 && !d.locked(c) && (i < len(d.learnt)/2 || c.Activity < lowerLimit) {
 			d.removeClause(c)
 		} else {
@@ -668,7 +678,7 @@ func (d *DPLL) reduceDB() {
 			j++
 		}
 	}
-	d.learnt = d.learnt[:len(d.learnt)-i+j]
+	d.learnt = d.learnt[:j]
 	d.checkGarbage()
 }
 
@@ -794,14 +804,14 @@ func (d *DPLL) Simplify() bool {
 			d.seen[d.releasedVars[i]] = SeenSource
 		}
 
-		var i, j int
-		for ; i < len(d.trail); i++ {
+		var j int
+		for i := range d.trail {
 			if !d.isSeen(d.trail[i].Var()) {
 				d.trail[j] = d.trail[i]
 				j++
 			}
 		}
-		d.trail = d.trail[:len(d.trail)-i+j]
+		d.trail = d.trail[:j]
 		d.qhead = len(d.trail)
 
 		for i := range d.releasedVars {
@@ -812,7 +822,7 @@ func (d *DPLL) Simplify() bool {
 		d.freeVars = append(d.freeVars, d.releasedVars...)
 		d.releasedVars = d.releasedVars[:0]
 	}
-	//d.checkGarbage()
+	d.checkGarbage()
 	d.rebuildOrderHeap()
 
 	d.nsimpAssign = d.NumAssign()
@@ -903,9 +913,7 @@ func (d *DPLL) search(maxconflict int) LBool {
 		panic("not okay")
 	}
 
-	var btlevel int
 	var numconflict int
-	var learnt []Lit
 
 	d.nstarts++
 
@@ -917,7 +925,7 @@ func (d *DPLL) search(maxconflict int) LBool {
 			if d.decisionLevel() == 0 {
 				return LFalse
 			}
-			learnt, btlevel = d.analyze(conflict)
+			learnt, btlevel := d.analyze(conflict)
 			d.cancelUntil(btlevel)
 
 			if len(learnt) == 1 {
@@ -1093,12 +1101,12 @@ func (d *DPLL) Conflict() []Lit {
 }
 
 func (d *DPLL) isRedundant(p Lit) bool {
-	if d.seen[p.Var()] == SeenUndef || d.seen[p.Var()] == SeenSource {
+	if d.seen[p.Var()] != SeenUndef && d.seen[p.Var()] != SeenSource {
 		panic(fmt.Sprintf("variable seen: %d %d", p.Var(), d.seen[p.Var()]))
 	}
 
 	c := d.reason(p.Var())
-	if c != nil {
+	if c == nil {
 		panic("missing reason")
 	}
 
@@ -1142,6 +1150,8 @@ func (d *DPLL) isRedundant(p Lit) bool {
 			i = d.analyzeStack[len(d.analyzeStack)-1].i
 			p = d.analyzeStack[len(d.analyzeStack)-1].p
 			c = d.reason(p.Var())
+
+			d.analyzeStack = d.analyzeStack[:len(d.analyzeStack)-1]
 		}
 	}
 
@@ -1235,18 +1245,18 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 
 	// simplify the conflict clause
 	d.analyzeToClear = append(d.analyzeToClear[:0], outLearnt...)
-	var i, j int
+	var j int
 	if d.CCMin == CCMinDeep {
 		j = 1
-		for i = 1; i < len(outLearnt); i++ {
-			if d.reason(outLearnt[i].Var()) == nil {
+		for i := 1; i < len(outLearnt); i++ {
+			if d.reason(outLearnt[i].Var()) == nil || !d.isRedundant(outLearnt[i]) {
 				outLearnt[j] = outLearnt[i]
 				j++
 			}
 		}
 	} else if d.CCMin == CCMinBasic {
 		j = 1
-		for i = 1; i < len(outLearnt); i++ {
+		for i := 1; i < len(outLearnt); i++ {
 			c := d.reason(outLearnt[i].Var())
 			if c == nil {
 				outLearnt[j] = outLearnt[i]
@@ -1262,7 +1272,6 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 			}
 		}
 	} else {
-		i = len(outLearnt)
 		j = len(outLearnt)
 	}
 
@@ -1273,7 +1282,7 @@ func (d *DPLL) analyze(confl *Clause) (outLearnt []Lit, btlevel int) {
 	// find the correct backtrack level
 	if len(outLearnt) != 1 {
 		imax := 1
-		for i = 2; i < len(outLearnt); i++ {
+		for i := 2; i < len(outLearnt); i++ {
 			if d.level(outLearnt[i].Var()) > d.level(outLearnt[imax].Var()) {
 				imax = i
 			}
@@ -1312,12 +1321,12 @@ func (d *DPLL) pickBranchLit() Lit {
 		return LitUndef
 	}
 	if !d.upolarity[next].IsUndef() {
-		return NewLit(next, d.upolarity[next].IsTrue())
+		return Literal(next, d.upolarity[next].IsTrue())
 	}
 	if d.RandPol {
-		return NewLit(next, d.randf64() < 0.5)
+		return Literal(next, d.randf64() < 0.5)
 	}
-	return NewLit(next, d.polarity[next])
+	return Literal(next, d.polarity[next])
 }
 
 func (d *DPLL) addClause(c []Lit) bool {
@@ -1330,7 +1339,6 @@ func (d *DPLL) addClause(c []Lit) bool {
 
 	sort.Sort(litSlice(c))
 
-	//log.Printf("PS %d", len(c))
 	var j int
 	for i, p := 0, LitUndef; i < len(c); i++ {
 		if d.ValueLit(c[i]).IsTrue() || c[i] == p.Inverse() {
@@ -1342,20 +1350,16 @@ func (d *DPLL) addClause(c []Lit) bool {
 		}
 	}
 	c = c[:j]
-	//log.Printf("PS %d", len(c))
 
 	switch len(c) {
 	case 0:
-		//log.Printf("ADD0")
 		d.ok = false
 		return false
 	case 1:
-		//log.Printf("ADD1")
 		d.uncheckedEnqueue(c[0], nil)
 		d.ok = d.propagate() == nil
 		return d.ok
 	default:
-		//log.Printf("ADD")
 		c := NewClause(c, false, false)
 		d.clauses = append(d.clauses, c)
 		d.attachClause(c)
@@ -1387,9 +1391,12 @@ func (d *DPLL) cancelUntil(level int) {
 	}
 	for c := len(d.trail) - 1; c >= d.trailLim[level]; c-- {
 		v := d.trail[c].Var()
+		if d.Verbosity >= 3 {
+			log.Printf("UNASSIGN %v", v)
+		}
 		d.assigns[v] = LUndef
 		if d.PhaseSaving > 1 || d.PhaseSaving == 1 && c > d.trailLim[len(d.trailLim)-1] {
-			d.polarity[v] = d.trail[c].IsPos()
+			d.polarity[v] = d.trail[c].IsNeg()
 		}
 		d.insertVarOrder(v)
 	}

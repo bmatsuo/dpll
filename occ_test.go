@@ -12,12 +12,12 @@ import (
 
 func TestOccList_Remove(t *testing.T) {
 	lits1 := []Lit{
-		NewLit(1, false),
-		NewLit(2, true),
+		Literal(1, true),
+		Literal(2, false),
 	}
 	lits2 := []Lit{
-		NewLit(1, false),
-		NewLit(3, false),
+		Literal(1, true),
+		Literal(3, true),
 	}
 	c1 := NewClause(lits1, false, false)
 	c2 := NewClause(lits2, false, false)
@@ -48,12 +48,12 @@ func TestOccList_Remove(t *testing.T) {
 
 func TestOccList_Clean(t *testing.T) {
 	lits1 := []Lit{
-		NewLit(1, false),
-		NewLit(2, true),
+		Literal(1, true),
+		Literal(2, false),
 	}
 	lits2 := []Lit{
-		NewLit(1, false),
-		NewLit(3, false),
+		Literal(1, true),
+		Literal(3, true),
 	}
 	c1 := NewClause(lits1, false, false)
 	c2 := NewClause(lits2, false, false)
@@ -91,8 +91,8 @@ func TestOccList_Clean(t *testing.T) {
 
 func TestWatcher_IsDeleted(t *testing.T) {
 	lits := []Lit{
-		NewLit(1, true),
-		NewLit(1, false),
+		Literal(1, false),
+		Literal(1, true),
 	}
 	c1 := NewClause(lits, false, false)
 	c2 := NewClause(lits, false, false)
@@ -111,12 +111,12 @@ func TestWatcher_IsDeleted(t *testing.T) {
 
 func TestWatcher_Equal(t *testing.T) {
 	l1 := []Lit{
-		NewLit(1, true),
-		NewLit(1, false),
+		Literal(1, false),
+		Literal(1, true),
 	}
 	l2 := []Lit{
-		NewLit(1, true),
-		NewLit(2, false),
+		Literal(1, false),
+		Literal(2, true),
 	}
 	c1 := NewClause(l1, false, false)
 	c2 := NewClause(l2, false, false)

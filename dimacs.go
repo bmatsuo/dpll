@@ -50,9 +50,9 @@ func Decode(s Solver, r io.Reader) (ok bool, err error) {
 		ls := make([]Lit, len(dc))
 		for i, dl := range dc {
 			if dl < 0 {
-				ls[i] = NewLit(Var(-dl), false)
+				ls[i] = Literal(Var(-dl), true)
 			} else {
-				ls[i] = NewLit(Var(dl), true)
+				ls[i] = Literal(Var(dl), false)
 			}
 		}
 		for _, p := range ls {

@@ -13,8 +13,8 @@ import (
 
 func TestClause(t *testing.T) {
 	l1 := []Lit{
-		NewLit(1, true),
-		NewLit(2, false),
+		Literal(1, false),
+		Literal(2, true),
 	}
 	c1 := NewClause(l1, false, false)
 	if !reflect.DeepEqual(c1.Lit, l1) {

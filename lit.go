@@ -28,29 +28,29 @@ func (v Var) IsUndef() bool {
 // variable.
 type Lit uint
 
-// NewLit creates a Lit from v.  If neg is true then the literal is negated.
-func NewLit(v Var, pos bool) Lit {
-	if pos {
+// Literal creates a Lit from v.  If neg is true then the literal is negated.
+func Literal(v Var, neg bool) Lit {
+	if neg {
 		return Lit(v+v) + 1
 	}
 	return Lit(v << 1)
 }
 
-// NewLitInt creates a Lit from integer x.
-func NewLitInt(x int) Lit {
+// LiteralInt creates a Lit from integer x.
+func LiteralInt(x int) Lit {
 	if x < 0 {
-		return NewLit(Var(-x), false)
+		return Literal(Var(-x), true)
 	}
-	return NewLit(Var(x), true)
+	return Literal(Var(x), false)
 }
 
 // String returns the string representation of l. For example "1", "-2", or
 // "0".
 func (l Lit) String() string {
-	if l.IsPos() {
-		return strconv.Itoa(int(l.Var()))
+	if l.IsNeg() {
+		return strconv.Itoa(-int(l.Var()))
 	}
-	return strconv.Itoa(-int(l.Var()))
+	return strconv.Itoa(int(l.Var()))
 }
 
 // Var returns the variable in l.  If IsUndef returns is true Var returns an
@@ -59,9 +59,9 @@ func (l Lit) Var() Var {
 	return Var(l >> 1)
 }
 
-// IsPos returns true iff l is a positive literal.  If IsUndef returns true
-// then the return value of IsPos is unspecified.
-func (l Lit) IsPos() bool {
+// IsNeg returns true iff l is a negated literal.  If IsUndef returns true
+// then the return value of IsNeg is unspecified.
+func (l Lit) IsNeg() bool {
 	return l&1 == 1
 }
 
@@ -76,7 +76,7 @@ func (l Lit) Inverse() Lit {
 	return l ^ 1
 }
 
-// Xor returns a literal of l.Var() that is positive iff l.IsPos() XOR b.
+// Xor returns a literal of l.Var() that is negated iff l.IsNeg() XOR b.
 func (l Lit) Xor(b bool) Lit {
 	return l ^ btol(b)
 }
