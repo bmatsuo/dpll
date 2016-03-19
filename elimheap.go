@@ -14,29 +14,37 @@ func newElimQueue(numocc *map[Lit]int) *elimQueue {
 	return (*elimQueue)(newMinCostHeap(numocc))
 }
 
+func (q *elimQueue) h() *minCostHeap {
+	return (*minCostHeap)(q)
+}
+
 func (q *elimQueue) Len() int {
-	return (*minCostHeap)(q).Len()
+	return q.h().Len()
 }
 
 // RemoveMin pops the least expensive variable from q and returns it.
 func (q *elimQueue) RemoveMin() (v Var, ok bool) {
-	return (*minCostHeap)(q).RemoveMin()
+	return q.h().RemoveMin()
 }
 
 func (q *elimQueue) Contains(v Var) bool {
-	return (*minCostHeap)(q).Contains(v)
+	return q.h().Contains(v)
 }
 
-func (q *elimQueue) Decrease(v Var) {
-	heap.Fix((*minCostHeap)(q), q.index[v])
+func (q *elimQueue) Update(v Var) {
+	q.h().Update(v)
+}
+
+func (q *elimQueue) Fix(v Var) {
+	q.h().Fix(v)
 }
 
 func (q *elimQueue) Rebuild(vs []Var) {
-	(*minCostHeap)(q).Rebuild(vs)
+	q.h().Rebuild(vs)
 }
 
 func (q *elimQueue) Push(v Var) {
-	(*minCostHeap)(q).Push(v)
+	q.h().Push(v)
 }
 
 // minCostHeap is a heap.Interface that prioritizes variables by minimizing
@@ -117,7 +125,15 @@ func (h *minCostHeap) Contains(v Var) bool {
 	return false
 }
 
-func (h *minCostHeap) Decrease(v Var) {
+func (h *minCostHeap) Update(v Var) {
+	if h.Contains(v) {
+		h.Fix(v)
+	} else {
+		h.Push(v)
+	}
+}
+
+func (h *minCostHeap) Fix(v Var) {
 	heap.Fix(h, h.index[v])
 }
 

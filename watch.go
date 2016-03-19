@@ -26,6 +26,22 @@ func (o *occLists) Push(p Lit, w watcher) {
 	o.occs[p] = append(o.occs[p], w)
 }
 
+func (o *occLists) RemoveAll(p Lit, free bool) {
+	if free {
+		delete(o.occs, p)
+		return
+	}
+
+	ws, ok := o.occs[p]
+	if !ok {
+		return
+	}
+	for i := range ws {
+		ws[i] = watcher{}
+	}
+	o.occs[p] = ws[:0]
+}
+
 // Remove immediately removes w from the watcher list of p.  Instead of calling
 // Remove repeatedly the associated clauses can be marked as deleted and their
 // literals dirtied using Smudge.  Using Smudge helps amortize the cost of
@@ -41,6 +57,9 @@ func (o *occLists) Remove(p Lit, w watcher) {
 			occs[j] = occs[i]
 			j++
 		}
+	}
+	for i := j; i < len(occs); i++ {
+		occs[i] = watcher{}
 	}
 	o.occs[p] = occs[:j]
 }

@@ -133,6 +133,10 @@ func mergeOpt(o1, o2 *Opt) *Opt {
 type DPLL struct {
 	Opt
 
+	useExtra         bool
+	addClauseFn      func(p ...Lit) bool
+	garbageCollectFn func()
+
 	startTime time.Time
 
 	model    []LBool
@@ -285,7 +289,7 @@ func (d *DPLL) NewVar(upol LBool, dvar bool) Var {
 // after ReleaseVar is called.
 func (d *DPLL) ReleaseVar(lit Lit) {
 	if d.Value(lit.Var()).IsUndef() {
-		d.AddClause(lit)
+		d.addClauseAlias(lit)
 		d.releasedVars = append(d.releasedVars, lit.Var())
 	}
 }
@@ -511,6 +515,13 @@ func (d *DPLL) withinBudget() bool {
 		(d.propagationBudget < 0 || d.npropogations < uint64(d.propagationBudget))
 }
 
+func (d *DPLL) addClauseAlias(c ...Lit) bool {
+	if d.addClauseFn != nil {
+		return d.addClauseFn(c...)
+	}
+	return d.AddClause(c...)
+}
+
 // AddClause adds a CNF clause containing the given literals.  The literals in
 // c will be sorted.
 func (d *DPLL) AddClause(c ...Lit) bool {
@@ -520,6 +531,14 @@ func (d *DPLL) AddClause(c ...Lit) bool {
 // AddClauseCopy adds a CNF clause containing a sorted copy the given literals.
 func (d *DPLL) AddClauseCopy(c []Lit) bool {
 	return d.addClause(c)
+}
+
+func (d *DPLL) newClause(ps []Lit, learnt bool) *Clause {
+	return NewClause(ps, d.useExtra, learnt)
+}
+
+func (d *DPLL) newClauseFrom(c *Clause) *Clause {
+	return NewClauseFrom(c, d.useExtra)
 }
 
 func (d *DPLL) removeClause(c *Clause) {
@@ -561,6 +580,14 @@ func (d *DPLL) checkGarbage() {
 
 func (d *DPLL) checkGarbageFrac(frac float64, force bool) {
 	if force || float64(d.ngarbLit)/float64(d.nclauseLit+d.nlearntLit+d.ngarbLit) > frac {
+		d.garbageCollectAlias()
+	}
+}
+
+func (d *DPLL) garbageCollectAlias() {
+	if d.garbageCollectFn != nil {
+		d.garbageCollectFn()
+	} else {
 		d.garbageCollect()
 	}
 }
@@ -934,7 +961,7 @@ func (d *DPLL) search(maxconflict int) LBool {
 			if len(learnt) == 1 {
 				d.uncheckedEnqueue(learnt[0], nil)
 			} else {
-				c := NewClause(learnt, true, true)
+				c := d.newClause(learnt, true)
 				d.learnt = append(d.learnt, c)
 				d.attachClause(c)
 				d.claBumpActivity(c)
@@ -1363,7 +1390,7 @@ func (d *DPLL) addClause(c []Lit) bool {
 		d.ok = d.propagate() == nil
 		return d.ok
 	default:
-		c := NewClause(c, false, false)
+		c := d.newClause(c, false)
 		d.clauses = append(d.clauses, c)
 		d.attachClause(c)
 	}
