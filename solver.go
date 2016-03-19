@@ -674,9 +674,12 @@ func (d *DPLL) reduceDB() {
 		if c.Len() > 2 && !d.locked(c) && (i < len(d.learnt)/2 || c.Activity < lowerLimit) {
 			d.removeClause(c)
 		} else {
-			d.learnt[j] = d.learnt[i]
+			d.learnt[j] = c
 			j++
 		}
+	}
+	for i := j; i < len(d.learnt); i++ {
+		d.learnt[i] = nil
 	}
 	d.learnt = d.learnt[:j]
 	d.checkGarbage()
