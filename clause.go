@@ -11,36 +11,55 @@ type Clause struct {
 	Lit []Lit
 }
 
+type clauseExtra struct {
+	Clause
+	ClauseExtra
+}
+
 // NewClause creates a new clause from the given literals.  After calling
 // NewClause the slice ps must not be modified in the future.
 func NewClause(ps []Lit, extra bool, learnt bool) *Clause {
-	c := &Clause{}
-	c.Lit = ps
-	c.Learnt = learnt
 	if extra {
-		c.ClauseExtra = &ClauseExtra{}
+		c := &clauseExtra{}
+		c.Clause.Learnt = learnt
+		c.Lit = ps
+		c.Clause.ClauseExtra = &c.ClauseExtra
 		if !learnt {
 			c.CalcAbstraction()
 		}
+		return &c.Clause
 	}
-	return c
+	return &Clause{
+		ClauseHeader: ClauseHeader{
+			Learnt: learnt,
+		},
+		Lit: ps,
+	}
 }
 
 // NewClauseFrom creates a new clause with an inherited ClauseHeader.  The
 // extra argument overrides any from ClauseExtra metadata.
 func NewClauseFrom(from *Clause, extra bool) *Clause {
-	c := &Clause{}
-	c.ClauseHeader = from.ClauseHeader
+	ps := make([]Lit, len(from.Lit))
+	copy(ps, from.Lit)
 	if !extra {
+		c := &Clause{
+			ClauseHeader: from.ClauseHeader,
+			Lit:          ps,
+		}
 		c.ClauseExtra = nil
-	} else if from.Learnt {
-		c.ClauseExtra = &ClauseExtra{Activity: from.Activity}
-	} else {
-		c.ClauseExtra = &ClauseExtra{Abstraction: from.Abstraction}
+		return c
 	}
-	c.Lit = make([]Lit, len(from.Lit))
-	copy(c.Lit, from.Lit)
-	return c
+
+	ce := &clauseExtra{
+		Clause: Clause{
+			ClauseHeader: from.ClauseHeader,
+			Lit:          ps,
+		},
+		ClauseExtra: *from.ClauseExtra,
+	}
+	ce.Clause.ClauseHeader.ClauseExtra = &ce.ClauseExtra
+	return &ce.Clause
 }
 
 /*
