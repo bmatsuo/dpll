@@ -16,30 +16,100 @@ type clauseExtra struct {
 	ClauseExtra
 }
 
+const smallLimit = 16
+
+type clauseSmall struct {
+	Clause
+	Lit [smallLimit]Lit
+}
+
+type clauseExtraSmall struct {
+	Clause
+	ClauseExtra // layout after Lit to copy minisat
+	Lit         [smallLimit]Lit
+}
+
 // NewClause creates a new clause from the given literals.  After calling
 // NewClause the slice ps must not be modified in the future.
 func NewClause(ps []Lit, extra bool, learnt bool) *Clause {
 	if extra {
+		if len(ps) < smallLimit {
+			cs := &clauseExtraSmall{
+				Clause: Clause{
+					ClauseHeader: ClauseHeader{
+						Learnt: learnt,
+					},
+				},
+			}
+			copy(cs.Lit[:], ps)
+			cs.Clause.Lit = cs.Lit[:len(ps)]
+			cs.Clause.ClauseExtra = &cs.ClauseExtra
+			if !learnt {
+				cs.Clause.CalcAbstraction()
+			}
+			return &cs.Clause
+		}
+
 		c := &clauseExtra{}
 		c.Clause.Learnt = learnt
-		c.Lit = ps
+		c.Lit = make([]Lit, len(ps))
+		copy(c.Lit, ps)
 		c.Clause.ClauseExtra = &c.ClauseExtra
 		if !learnt {
 			c.CalcAbstraction()
 		}
 		return &c.Clause
 	}
+	if len(ps) < smallLimit {
+		cs := &clauseSmall{
+			Clause: Clause{
+				ClauseHeader: ClauseHeader{
+					Learnt: learnt,
+				},
+			},
+		}
+		copy(cs.Lit[:], ps)
+		cs.Clause.Lit = cs.Lit[:len(ps)]
+		return &cs.Clause
+	}
+	_ps := make([]Lit, len(ps))
+	copy(_ps, ps)
 	return &Clause{
 		ClauseHeader: ClauseHeader{
 			Learnt: learnt,
 		},
-		Lit: ps,
+		Lit: _ps,
 	}
 }
 
 // NewClauseFrom creates a new clause with an inherited ClauseHeader.  The
 // extra argument overrides any from ClauseExtra metadata.
 func NewClauseFrom(from *Clause, extra bool) *Clause {
+	if len(from.Lit) < smallLimit {
+		if !extra {
+			cs := &clauseSmall{
+				Clause: Clause{
+					ClauseHeader: from.ClauseHeader,
+				},
+			}
+			cs.Clause.ClauseExtra = nil
+			copy(cs.Lit[:], from.Lit)
+			cs.Clause.Lit = cs.Lit[:len(from.Lit)]
+			return &cs.Clause
+		}
+
+		ce := &clauseExtraSmall{
+			Clause: Clause{
+				ClauseHeader: from.ClauseHeader,
+			},
+			ClauseExtra: *from.ClauseExtra,
+		}
+		copy(ce.Lit[:], from.Lit)
+		ce.Clause.Lit = ce.Lit[:len(from.Lit)]
+		ce.Clause.ClauseHeader.ClauseExtra = &ce.ClauseExtra
+		return &ce.Clause
+	}
+
 	ps := make([]Lit, len(from.Lit))
 	copy(ps, from.Lit)
 	if !extra {
