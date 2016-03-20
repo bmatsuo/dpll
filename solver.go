@@ -391,9 +391,9 @@ func (d *DPLL) ValueLit(lit Lit) LBool {
 		return LUndef
 	}
 	if lit.IsNeg() {
-		return Bool(d.assigns[lit.Var()].IsFalse())
+		return LiftBool(d.assigns[lit.Var()].IsFalse())
 	}
-	return Bool(d.assigns[lit.Var()].IsTrue())
+	return LiftBool(d.assigns[lit.Var()].IsTrue())
 }
 
 // ValueModel returns the value of v in the last model.  The last call to Solve
@@ -455,7 +455,7 @@ func (d *DPLL) uncheckedEnqueue(p Lit, from *Clause) {
 	if d.Verbosity >= 3 {
 		log.Printf("ASSIGN %v @ %d", p, d.decisionLevel())
 	}
-	d.assigns[p.Var()] = Bool(!p.IsNeg())
+	d.assigns[p.Var()] = LiftBool(!p.IsNeg())
 	d.vardata[p.Var()] = varData{from, d.decisionLevel()}
 	d.trail = append(d.trail, p)
 }

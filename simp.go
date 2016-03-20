@@ -286,7 +286,7 @@ func (s *Simp) solve(doSimp, turnOffSimp bool) LBool {
 			}
 		}
 
-		result = Bool(s.eliminate(turnOffSimp))
+		result = LiftBool(s.eliminate(turnOffSimp))
 	}
 
 	if result.IsTrue() {
@@ -420,7 +420,7 @@ nextClause:
 		}
 
 		p = Lit(s.elimClauses[i])
-		s.d.model[p.Var()] = Bool(!p.IsNeg())
+		s.d.model[p.Var()] = LiftBool(!p.IsNeg())
 	}
 }
 

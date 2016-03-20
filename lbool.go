@@ -15,8 +15,8 @@ const (
 // LBool is a lifted boolean value which may be undefined.
 type LBool uint8
 
-// Bool returns LTrue or LFalse if b is true or false respectively.
-func Bool(b bool) LBool {
+// LiftBool returns LTrue or LFalse if b is true or false respectively.
+func LiftBool(b bool) LBool {
 	if b {
 		return LTrue
 	}
