@@ -30,8 +30,8 @@ func (q *clauseQueue) clear() {
 }
 
 func (q *clauseQueue) Len() int {
-	if q.end > q.start {
-		return len(q.q) + q.end - q.start
+	if q.end < q.start {
+		return len(q.q) - q.end + q.start
 	}
 	return q.end - q.start
 }
@@ -40,7 +40,7 @@ func (q *clauseQueue) Clause(i int) *Clause {
 	if i < 0 || i >= q.Len() {
 		panic("index out of range")
 	}
-	return q.q[(i+q.start)%len(q.q)]
+	return q.q[(q.start+i)%len(q.q)]
 }
 
 func (q *clauseQueue) Front() *Clause {
@@ -58,15 +58,19 @@ func (q *clauseQueue) Pop() *Clause {
 }
 
 func (q *clauseQueue) Insert(c *Clause) {
+	if c == nil {
+		panic("nil clause")
+	}
 	// q.end is always unused
 	q.q[q.end] = c
 	q.end = (q.end + 1) % len(q.q)
+
 	if q.end == q.start {
 		old := q.q
 		q.q = make([]*Clause, (len(old)*3+1)>>1)
 		n := copy(q.q, old[q.start:])
-		copy(q.q[n:], old[:q.end])
+		n2 := copy(q.q[n:], old[:q.end])
 		q.start = 0
-		q.end = 0
+		q.end = n + n2
 	}
 }

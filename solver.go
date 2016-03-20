@@ -135,6 +135,7 @@ type DPLL struct {
 
 	useExtra         bool
 	addClauseFn      func(p ...Lit) bool
+	removeClauseFn   func(c *Clause)
 	garbageCollectFn func()
 
 	startTime time.Time
@@ -518,10 +519,22 @@ func (d *DPLL) withinBudget() bool {
 }
 
 func (d *DPLL) addClauseAlias(c ...Lit) bool {
+	return d.dispatchAddClause(c...)
+}
+
+func (d *DPLL) dispatchAddClause(c ...Lit) bool {
 	if d.addClauseFn != nil {
 		return d.addClauseFn(c...)
 	}
 	return d.AddClause(c...)
+}
+
+func (d *DPLL) dispatchRemoveClause(c *Clause) {
+	if d.removeClauseFn != nil {
+		d.removeClauseFn(c)
+	} else {
+		d.removeClause(c)
+	}
 }
 
 // AddClause adds a CNF clause containing the given literals.  The literals in
@@ -536,7 +549,7 @@ func (d *DPLL) AddClauseCopy(c []Lit) bool {
 }
 
 func (d *DPLL) newClause(ps []Lit, learnt bool) *Clause {
-	return NewClause(ps, d.useExtra, learnt)
+	return NewClause(ps, d.useExtra || learnt, learnt)
 }
 
 func (d *DPLL) newClauseFrom(c *Clause) *Clause {
@@ -569,6 +582,9 @@ func (d *DPLL) detachClause(c *Clause, strict bool) {
 	d.ngarbLit += uint64(c.Len())
 	if c.Learnt {
 		d.nlearnt--
+		if d.nlearnt == math.MaxUint64 {
+			panic("nlearnt underflow")
+		}
 		d.nlearntLit -= uint64(c.Len())
 	} else {
 		d.nclauses--
@@ -587,6 +603,10 @@ func (d *DPLL) checkGarbageFrac(frac float64, force bool) {
 }
 
 func (d *DPLL) garbageCollectAlias() {
+	d.dispatchGarbageCollect()
+}
+
+func (d *DPLL) dispatchGarbageCollect() {
 	if d.garbageCollectFn != nil {
 		d.garbageCollectFn()
 	} else {
@@ -598,8 +618,7 @@ func (d *DPLL) garbageCollect() {
 	numremove := d.relocAll()
 	d.ngarbLit = 0
 	if d.Verbosity >= 2 {
-		log.Printf("===============================================================================")
-		log.Printf("| Garbage collection:   %12d literals freed                                   |", numremove)
+		log.Printf("|  Garbage collection:   %12d literals freed                          |", numremove)
 	}
 }
 
@@ -671,7 +690,7 @@ func (d *DPLL) removeSatisfied(ptr *[]*Clause) {
 	for ; i < len(cs); i++ {
 		c := cs[i]
 		if d.satisfied(c) {
-			d.removeClause(c)
+			d.dispatchRemoveClause(c)
 		} else {
 			if !d.ValueLit(c.Lit[0]).IsUndef() || !d.ValueLit(c.Lit[1]).IsUndef() {
 				panic(fmt.Sprintf("literals have value(s) %v %v", d.ValueLit(c.Lit[0]), d.ValueLit(c.Lit[1])))
@@ -701,7 +720,7 @@ func (d *DPLL) reduceDB() {
 		c := d.learnt[i]
 		// don't delete binary or locked clauses.
 		if c.Len() > 2 && !d.locked(c) && (i < len(d.learnt)/2 || c.Activity < lowerLimit) {
-			d.removeClause(c)
+			d.dispatchRemoveClause(c)
 		} else {
 			d.learnt[j] = c
 			j++

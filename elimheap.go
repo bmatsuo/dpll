@@ -22,6 +22,10 @@ func (q *elimQueue) Len() int {
 	return q.h().Len()
 }
 
+func (q *elimQueue) Init() {
+	q.h().Init()
+}
+
 // RemoveMin pops the least expensive variable from q and returns it.
 func (q *elimQueue) RemoveMin() (v Var, ok bool) {
 	return q.h().RemoveMin()
@@ -135,6 +139,10 @@ func (h *minCostHeap) Update(v Var) {
 
 func (h *minCostHeap) Fix(v Var) {
 	heap.Fix(h, h.index[v])
+}
+
+func (h *minCostHeap) Init() {
+	heap.Init(h)
 }
 
 func (h *minCostHeap) Rebuild(vs []Var) {

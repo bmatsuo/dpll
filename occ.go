@@ -109,7 +109,7 @@ func (o *clauseOccLists) CleanAll() {
 func (o *clauseOccLists) Clean(p Var) {
 	occs := o.occs[p]
 	if len(occs) == 0 {
-		panic("no occurrences")
+		return
 	}
 	var j int
 	for i := range occs {

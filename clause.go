@@ -86,7 +86,7 @@ type ClauseExtra struct {
 // subsumption resolution.  If Subsumes returns true and p is not LitUndef then
 // p can be removed from c2.
 func (c *Clause) Subsumes(c2 *Clause) (ok bool, p Lit) {
-	if c.Len() != c2.Len() && c.Abstraction != c2.Abstraction {
+	if c.Len() != c2.Len() && c.Abstraction&^c2.Abstraction != 0 {
 		return false, LitUndef
 	}
 	p = LitUndef
@@ -99,7 +99,7 @@ outer:
 			if lit1 == lit2 {
 				continue outer
 			}
-			if p == LitUndef && lit1 == lit2.Inverse() {
+			if p.IsUndef() && lit1 == lit2.Inverse() {
 				p = lit1
 				continue outer
 			}
@@ -111,16 +111,17 @@ outer:
 }
 
 // Strengthen removes p from the list of literals in c.
-func (c *Clause) Strengthen(p Lit) {
+func (c *Clause) Strengthen(p Lit) bool {
 	for i, lit := range c.Lit {
 		if lit == p {
 			copy(c.Lit[i:], c.Lit[i+1:])
 			c.Lit = c.Lit[:len(c.Lit)-1]
 
 			c.CalcAbstraction()
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // ClauseHeader contains Clause metadata that can be inherited from other

@@ -5,7 +5,11 @@
 
 package dpll
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"os"
+)
 
 // Marks used by the Simp solver
 const (
@@ -99,6 +103,7 @@ var _ Solver = (*Simp)(nil)
 // and simplification options.
 func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 	d := New(opt)
+	d.useExtra = true
 	d.removeSat = false
 
 	s := &Simp{
@@ -106,15 +111,18 @@ func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 		elimOrder:      1,
 		useSimp:        true,
 		occurs:         newClauseOccLists(),
+		subQueue:       newClauseQueue(1),
 		numOcc:         make(map[Lit]int),
 		frozen:         make([]bool, 1),
 		eliminated:     make([]bool, 1),
 		touched:        make([]bool, 1),
 		bwdsubTempUnit: d.newClause([]Lit{0}, false),
+		d:              d,
 	}
 	s.elimHeap = newElimQueue(&s.numOcc)
 
 	d.addClauseFn = s.AddClause
+	d.removeClauseFn = s.removeClause
 	d.garbageCollectFn = s.garbageCollect
 
 	return s
@@ -242,6 +250,16 @@ func (s *Simp) AddClause(ps ...Lit) bool {
 	return true
 }
 
+// Okay returns true if s hasn't yet found a contradiction
+func (s *Simp) Okay() bool {
+	return s.d.ok
+}
+
+// PrintStats prints solver stats after Solve has returned
+func (s *Simp) PrintStats() {
+	s.d.PrintStats()
+}
+
 // SolveSimp is like Solve but allows something...
 func (s *Simp) SolveSimp(assump []Lit, presimp bool, turnOffSimp bool) bool {
 	s.d.budgetOff()
@@ -286,7 +304,7 @@ func (s *Simp) solve(doSimp, turnOffSimp bool) LBool {
 			}
 		}
 
-		result = LiftBool(s.eliminate(turnOffSimp))
+		result = LiftBool(s.Eliminate(turnOffSimp))
 	}
 
 	if result.IsTrue() {
@@ -319,7 +337,10 @@ func (s *Simp) removeClause(c *Clause) {
 	s.d.removeClause(c)
 }
 
-func (s *Simp) eliminate(turnOffElim bool) bool {
+// Eliminate performs simplification and variable elimination turnOffElim
+// should be true the last time that Eliminate is called to free memory used
+// during variable elimination.
+func (s *Simp) Eliminate(turnOffElim bool) bool {
 	if !s.d.Simplify() {
 		return false
 	}
@@ -345,12 +366,12 @@ func (s *Simp) eliminate(turnOffElim bool) bool {
 				break
 			}
 
-			if !s.IsEliminated(elim) || !s.d.Value(elim).IsUndef() {
+			if s.IsEliminated(elim) || !s.d.Value(elim).IsUndef() {
 				continue
 			}
 
 			if s.d.Verbosity >= 2 && count%1000 == 0 {
-				log.Printf("elimination remaining: %10d", s.elimHeap.Len())
+				fmt.Fprintf(os.Stderr, "                    elimination remaining: %10d\r", s.elimHeap.Len())
 			}
 
 			if s.Asymm {
@@ -365,9 +386,11 @@ func (s *Simp) eliminate(turnOffElim bool) bool {
 			}
 
 			// check if the variable was set by asymmetry branching
-			if !s.NoElim && s.d.Value(elim).IsUndef() && !s.frozen[elim] && !s.eliminateVar(elim) {
-				s.d.ok = false
-				goto cleanup
+			if !s.NoElim && s.d.Value(elim).IsUndef() && !s.frozen[elim] {
+				if !s.eliminateVar(elim) {
+					s.d.ok = false
+					goto cleanup
+				}
 			}
 
 			s.d.checkGarbageFrac(s.SimpGarbageFrac, false)
@@ -388,7 +411,6 @@ cleanup:
 		s.subQueue = nil
 		s.useSimp = false
 		s.d.removeSat = true
-		s.d.useExtra = false
 		s.maxSimpVar = Var(s.d.NumVar())
 
 		s.d.rebuildOrderHeap()
@@ -397,9 +419,9 @@ cleanup:
 		s.d.checkGarbage()
 	}
 
-	if s.d.Verbosity >= 1 && len(s.elimClauses) > 0 {
-		log.Printf("|  Eliminated clauses:     %10.2f MB                                      |",
-			float64(len(s.elimClauses))*float64(32)/float64(1024*1024))
+	if s.d.Verbosity >= 1 {
+		log.Printf("|  Eliminated clauses:   %12d (%10.2f MB)                         |",
+			len(s.elimClauses), float64(len(s.elimClauses))*float64(4)/float64(1024*1024))
 	}
 
 	return s.d.ok
@@ -518,13 +540,16 @@ func (s *Simp) eliminateVar(v Var) bool {
 		s.mkElimClause(Literal(v, true))
 	}
 
+	for i := range cs {
+		s.removeClause(cs[i])
+	}
+
 	for i := range pos {
 		for j := range neg {
 			ok, psResolvent := s.merge(pos[i], neg[j], v)
-			if !ok {
+			if ok && !s.AddClause(psResolvent...) {
 				return false
 			}
-			s.AddClause(psResolvent...)
 		}
 	}
 
@@ -630,9 +655,7 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 		if s.subQueue.Len() == 0 && s.bwdsubAssigns < len(s.d.trail) {
 			p := s.d.trail[s.bwdsubAssigns]
 			s.bwdsubAssigns++
-			s.bwdsubTempUnit.Lit[0] = p
-			s.bwdsubTempUnit.CalcAbstraction()
-			s.subQueue.Insert(s.bwdsubTempUnit)
+			s.subQueue.Insert(s.d.newClause([]Lit{p}, false))
 		}
 
 		c := s.subQueue.Pop()
@@ -640,10 +663,12 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 			continue
 		}
 
-		if verbose && s.d.Verbosity >= 2 && count%1000 == 0 {
-			log.Printf("subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", s.subQueue.Len(), numSubsumed, numDeletedLiterals)
+		if verbose && s.d.Verbosity >= 2 {
+			if count%1000 == 0 {
+				fmt.Fprintf(os.Stderr, "                    subsumption left: %10d (%10d subsumed, %10d deleted literals)\r", s.subQueue.Len(), numSubsumed, numDeletedLiterals)
+			}
+			count++
 		}
-		count++
 
 		if c.Len() == 1 && !s.d.ValueLit(c.Lit[0]).IsTrue() {
 			// unit clauses should have been propagated at this point
@@ -677,7 +702,7 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 				} else {
 					numDeletedLiterals++
 
-					if !s.strengthenClause(cs[j], p) {
+					if !s.strengthenClause(cs[j], p.Inverse()) {
 						return false
 					}
 
@@ -685,7 +710,6 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 						j--
 					}
 				}
-
 			}
 		}
 	}
@@ -779,14 +803,13 @@ shortList:
 					continue shortList
 				}
 			}
+			ps = append(ps, c2.Lit[j])
 		}
-		ps = append(ps, c2.Lit[j])
 	}
 
 	for i := range c1.Lit {
 		if c1.Lit[i].Var() != v {
 			ps = append(ps, c1.Lit[i])
-			// TODO: investigate if it is really not ok to return here
 		}
 	}
 
@@ -820,8 +843,8 @@ shortList:
 					continue shortList
 				}
 			}
+			size++
 		}
-		size++
 	}
 
 	return true, size
@@ -836,12 +859,16 @@ func (s *Simp) strengthenClause(c *Clause, p Lit) bool {
 	// TODO: if !s.subQueue.Contains(c) then insert
 	s.subQueue.Insert(c)
 
-	if c.Len() != 2 {
+	if c.Len() == 2 {
 		s.removeClause(c)
-		c.Strengthen(p)
+		if !c.Strengthen(p) {
+			panic("could not strengthen")
+		}
 	} else {
-		s.d.detachClause(c, false)
-		c.Strengthen(p)
+		s.d.detachClause(c, true)
+		if !c.Strengthen(p) {
+			panic("could not strengthen")
+		}
 		s.d.attachClause(c)
 		// FIXME: this is going to be balls slow potentially lots of clauses
 		s.occurs.Remove(p.Var(), c)
@@ -872,5 +899,7 @@ func (s *Simp) garbageCollect() {
 // for now not much to do in here... if relocation really turns into something
 // then there will be something to do.
 func (s *Simp) relocAll() {
-	s.occurs.CleanAll()
+	if s.occurs != nil {
+		s.occurs.CleanAll()
+	}
 }
