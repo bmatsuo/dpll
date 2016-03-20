@@ -204,6 +204,8 @@ type DPLL struct {
 	r *rand.Rand
 }
 
+var _ Solver = (*DPLL)(nil)
+
 // New initializes and returns a new SAT solver.
 func New(opt *Opt) *DPLL {
 	d := &DPLL{}

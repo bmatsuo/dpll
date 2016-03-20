@@ -93,6 +93,8 @@ type Simp struct {
 	d *DPLL
 }
 
+var _ Solver = (*Simp)(nil)
+
 // NewSimp returns a new simplifying solver initialized with the given search
 // and simplification options.
 func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
@@ -116,6 +118,16 @@ func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 	d.garbageCollectFn = s.garbageCollect
 
 	return s
+}
+
+// NumClause implements Solver
+func (s *Simp) NumClause() int {
+	return s.d.NumClause()
+}
+
+// NumVar implements Solver
+func (s *Simp) NumVar() int {
+	return s.d.NumVar()
 }
 
 // NewVar behaves like DPLL.NewVar.
@@ -228,6 +240,72 @@ func (s *Simp) AddClause(ps ...Lit) bool {
 	}
 
 	return true
+}
+
+// SolveSimp is like Solve but allows something...
+func (s *Simp) SolveSimp(assump []Lit, presimp bool, turnOffSimp bool) bool {
+	s.d.budgetOff()
+	s.d.assumptions = assump
+	return s.solve(presimp, turnOffSimp).IsTrue()
+}
+
+// SolveLimitedSimp is like SolveLimited but allows something...
+func (s *Simp) SolveLimitedSimp(assump []Lit, presimp bool, turnOffSimp bool) LBool {
+	s.d.assumptions = assump
+	return s.solve(presimp, turnOffSimp)
+}
+
+// Solve implements Solver
+func (s *Simp) Solve(assump ...Lit) bool {
+	return s.SolveSimp(assump, false, false)
+}
+
+// SolveLimited implements Solver
+func (s *Simp) SolveLimited(assump ...Lit) LBool {
+	return s.SolveLimitedSimp(assump, false, false)
+}
+
+func (s *Simp) solve(doSimp, turnOffSimp bool) LBool {
+	if doSimp && !s.useSimp {
+		doSimp = false
+	}
+
+	var extraFrozen []Var
+	result := LTrue
+
+	if doSimp {
+		for i := range s.d.assumptions {
+			v := s.d.assumptions[i].Var()
+			if s.IsEliminated(v) {
+				panic("assumption includes eliminated variable")
+			}
+
+			if !s.frozen[v] {
+				s.SetFrozen(v, true)
+				extraFrozen = append(extraFrozen, v)
+			}
+		}
+
+		result = Bool(s.eliminate(turnOffSimp))
+	}
+
+	if result.IsTrue() {
+		result = s.d.solve()
+	} else if s.d.Verbosity >= 1 {
+		log.Printf("===============================================================================")
+	}
+
+	if result.IsTrue() && !s.NoExtend {
+		s.extendModel()
+	}
+
+	if doSimp {
+		for i := range extraFrozen {
+			s.SetFrozen(extraFrozen[i], false)
+		}
+	}
+
+	return result
 }
 
 func (s *Simp) removeClause(c *Clause) {
