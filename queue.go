@@ -31,7 +31,7 @@ func (q *clauseQueue) clear() {
 
 func (q *clauseQueue) Len() int {
 	if q.end < q.start {
-		return len(q.q) - q.end + q.start
+		return len(q.q) - q.start + q.end
 	}
 	return q.end - q.start
 }
