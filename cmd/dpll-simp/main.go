@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"runtime"
 	"time"
 
@@ -21,6 +22,7 @@ func main() {
 	solver := dpll.NewSimp(&dpll.Opt{
 		Verbosity: *verbosity,
 	}, nil)
+
 	parseStart := time.Now()
 	_, err := dpll.DecodeFile(solver, flag.Arg(0))
 	if err != nil {
@@ -34,6 +36,16 @@ func main() {
 		dur := parseEnd.Sub(parseStart)
 		log.Printf("|  Parse time:           %12v                                         |", dur-dur%time.Microsecond)
 	}
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	go func(c chan os.Signal) {
+		for range c {
+			signal.Stop(c)
+			solver.Interrupt()
+			break
+		}
+	}(sig)
 
 	solver.Eliminate(true)
 	simplifyEnd := time.Now()

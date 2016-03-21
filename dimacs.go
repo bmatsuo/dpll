@@ -20,6 +20,8 @@ type Solver interface {
 	NumClause() int
 	NewVar(upol LBool, dvar bool) Var
 	AddClause(p ...Lit) bool
+	Interrupt()
+	ClearInterrupt()
 	Solve(assumptions ...Lit) bool
 	SolveLimited(assumptions ...Lit) LBool
 }

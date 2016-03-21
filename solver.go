@@ -130,7 +130,8 @@ func mergeOpt(o1, o2 *Opt) *Opt {
 
 // DPLL is a DPLL satisfiability (SAT) solver.  DPLL is a synchronous structure
 // and its variables/methods must not be used concurrently from multiple
-// goroutines.
+// goroutines.  The only methods on DPLL which may be called concurrent with
+// other methods are Interrupt and ClearInterrupt.
 type DPLL struct {
 	Opt
 
