@@ -3,6 +3,8 @@
 // Use of this software is governed by the MIT license.  A copy of the license
 // agreement can be found in the LICENSE file distributed with this software.
 
+//go:generate bash build_clauselocal.sh
+
 package dpll
 
 // Clause is a disjunction of literals.
@@ -11,17 +13,19 @@ type Clause struct {
 	Lit []Lit
 }
 
-// NewClause creates a new clause from the given literals.  After calling
-// NewClause the slice ps must not be modified in the future.
+// clauseExtra used during clause construction when needed and forces data
+// locality to limit indirection overhead (by avoiding most cache misses).
+type clauseExtra struct {
+	Clause
+	ClauseExtra
+}
+
+// NewClause creates a new clause containing a copy of ps.
 func NewClause(ps []Lit, extra bool, learnt bool) *Clause {
-	c := &Clause{}
-	c.Lit = ps
+	c := newClause(ps, extra)
 	c.Learnt = learnt
-	if extra {
-		c.ClauseExtra = &ClauseExtra{}
-		if !learnt {
-			c.CalcAbstraction()
-		}
+	if extra && !learnt {
+		c.CalcAbstraction()
 	}
 	return c
 }
@@ -29,18 +33,44 @@ func NewClause(ps []Lit, extra bool, learnt bool) *Clause {
 // NewClauseFrom creates a new clause with an inherited ClauseHeader.  The
 // extra argument overrides any from ClauseExtra metadata.
 func NewClauseFrom(from *Clause, extra bool) *Clause {
-	c := &Clause{}
-	c.ClauseHeader = from.ClauseHeader
-	if !extra {
-		c.ClauseExtra = nil
-	} else if from.Learnt {
-		c.ClauseExtra = &ClauseExtra{Activity: from.Activity}
+	c := newClause(from.Lit, extra)
+	if extra {
+		ce := c.ClauseExtra
+		*ce = *from.ClauseExtra
+		c.ClauseHeader = from.ClauseHeader
+		c.ClauseExtra = ce
 	} else {
-		c.ClauseExtra = &ClauseExtra{Abstraction: from.Abstraction}
+		c.ClauseHeader = from.ClauseHeader
+		c.ClauseHeader.ClauseExtra = nil
 	}
-	c.Lit = make([]Lit, len(from.Lit))
-	copy(c.Lit, from.Lit)
 	return c
+}
+
+// newClause constructs a new clause using a copy of ps.  if extra is true the
+// returned clause will have a non-nil ClauseExtra field.  newClause attempts
+// to ensure that all allocated memory is in a continuous structure to maximize
+// data locality and cache hits.
+func newClause(ps []Lit, extra bool) *Clause {
+	if extra {
+		if len(ps) < len(mkClauseExtraLocal) {
+			// allocate data as a continuous chunk to maximize cache hits
+			return mkClauseExtraLocal[len(ps)](ps)
+		}
+		_ps := make([]Lit, len(ps))
+		copy(_ps, ps)
+		ce := &clauseExtra{
+			Clause: Clause{Lit: _ps},
+		}
+		ce.Clause.ClauseExtra = &ce.ClauseExtra
+		return &ce.Clause
+	}
+	if len(ps) < len(mkClauseLocal) {
+		// allocate data as a continuous chunk to maximize cache hits
+		return mkClauseLocal[len(ps)](ps)
+	}
+	_ps := make([]Lit, len(ps))
+	copy(_ps, ps)
+	return &Clause{Lit: _ps}
 }
 
 /*

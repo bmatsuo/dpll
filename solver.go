@@ -551,11 +551,6 @@ func (d *DPLL) AddClause(c ...Lit) bool {
 	return d.addClause(c)
 }
 
-// AddClauseCopy adds a CNF clause containing a sorted copy the given literals.
-func (d *DPLL) AddClauseCopy(c []Lit) bool {
-	return d.addClause(c)
-}
-
 func (d *DPLL) newClause(ps []Lit, learnt bool) *Clause {
 	return NewClause(ps, d.useExtra || learnt, learnt)
 }
