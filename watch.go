@@ -8,31 +8,54 @@ package dpll
 // occLists maintains Lit watcher lists used during propagation of assignment
 // to derive models/conflicts.
 type occLists struct {
-	occs    map[Lit][]watcher
-	dirty   map[Lit]bool
+	_occs   [][]watcher
+	_dirty  []bool
+	occs    [][]watcher
+	dirty   []bool
 	dirties []Lit
 }
 
 // newOccLists initializes and returns a new occLists.
 func newOccLists() *occLists {
-	return &occLists{
-		occs:  make(map[Lit][]watcher),
-		dirty: make(map[Lit]bool),
-	}
+	return &occLists{}
 }
 
 // Push adds w to the list of watchers for p.
 func (o *occLists) Push(p Lit, w watcher) {
+	o.extend(int(p))
 	o.occs[p] = append(o.occs[p], w)
+}
+
+func (o *occLists) extend(n int) {
+	if n >= len(o.occs) {
+		if n >= len(o._occs) {
+			for i := len(o._occs) - 1; i < n; i++ {
+				o._occs = append(o._occs, nil)
+			}
+			for i := len(o._dirty) - 1; i < n; i++ {
+				o._dirty = append(o._dirty, false)
+			}
+		}
+		o.occs = o._occs[:n+1]
+		o.dirty = o._dirty[:n+1]
+	}
+}
+
+func (o *occLists) get(p Lit) ([]watcher, bool) {
+	if int(p) < len(o.occs) {
+		ws := o.occs[p]
+		return ws, ws == nil
+	}
+	return nil, false
 }
 
 func (o *occLists) RemoveAll(p Lit, free bool) {
 	if free {
-		delete(o.occs, p)
+		o.occs = nil
 		return
 	}
 
-	ws, ok := o.occs[p]
+	ws, ok := o.get(p)
 	if !ok {
 		return
 	}
@@ -47,10 +70,8 @@ func (o *occLists) RemoveAll(p Lit, free bool) {
 // literals dirtied using Smudge.  Using Smudge helps amortize the cost of
 // removing multiple watchers between calls to Lookup.
 func (o *occLists) Remove(p Lit, w watcher) {
-	occs := o.occs[p]
-	if len(occs) == 0 {
-		return
-	}
+	o.extend(int(p))
+	occs, _ := o.get(p)
 	var j int
 	for i := range occs {
 		if !occs[i].Equal(&w) {
@@ -71,12 +92,14 @@ func (o *occLists) Init(p Lit) {
 // Occurrences returns the watcher list for p.  The watcher list may contain
 // deleted clauses.
 func (o *occLists) Occurrences(p Lit) []watcher {
-	return o.occs[p]
+	ws, _ := o.get(p)
+	return ws
 }
 
 // Lookup performs any pending lazy watcher removals for p before returning its
 // watcher list.  The returned watcher list will never contain deleted clauses.
 func (o *occLists) Lookup(p Lit) []watcher {
+	o.extend(int(p))
 	if o.dirty[p] {
 		o.Clean(p)
 	}
@@ -87,13 +110,16 @@ func (o *occLists) Lookup(p Lit) []watcher {
 // released for garbage collection by the runtime.
 func (o *occLists) Clear(free bool) {
 	if free {
-		o.occs = map[Lit][]watcher{}
-		o.dirty = map[Lit]bool{}
+		o.occs = nil
+		o.dirty = nil
 		o.dirties = nil
 	} else {
 		// replacing maps with empty maps is way easier
-		o.occs = make(map[Lit][]watcher, len(o.occs))
-		o.dirty = make(map[Lit]bool, len(o.dirty))
+		for i := range o._occs {
+			o._occs[i] = nil
+		}
+		o.occs = o.occs[:0]
+		o.dirty = o.dirty[:0]
 		o.dirties = o.dirties[:0]
 	}
 }
@@ -102,6 +128,7 @@ func (o *occLists) Clear(free bool) {
 func (o *occLists) CleanAll() {
 	for _, p := range o.dirties {
 		// dirties may contain duplicates, o.dirty should be checked always.
+		o.extend(int(p))
 		if o.dirty[p] {
 			o.Clean(p)
 		}
@@ -111,9 +138,9 @@ func (o *occLists) CleanAll() {
 
 // Clean processes pending watcher removals for p.
 func (o *occLists) Clean(p Lit) {
-	occs := o.occs[p]
+	occs, _ := o.get(p)
 	if len(occs) == 0 {
-		panic("no occurrences")
+		return
 	}
 	var j int
 	for i := range occs {
@@ -128,6 +155,7 @@ func (o *occLists) Clean(p Lit) {
 
 // Smudge marks p as dirty
 func (o *occLists) Smudge(p Lit) {
+	o.extend(int(p))
 	if !o.dirty[p] {
 		o.dirty[p] = true
 		o.dirties = append(o.dirties, p)

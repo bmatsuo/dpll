@@ -7,34 +7,48 @@ package dpll
 
 // clauseOccLists maintains lists of clauses containing each literal.
 type clauseOccLists struct {
-	occs    map[Var][]*Clause
-	dirty   map[Var]bool
+	_occs   [][]*Clause
+	_dirty  []bool
+	occs    [][]*Clause
+	dirty   []bool
 	dirties []Var
 }
 
 // newOccLists initializes and returns a new clauseOccLists.
 func newClauseOccLists() *clauseOccLists {
-	return &clauseOccLists{
-		occs:  make(map[Var][]*Clause),
-		dirty: make(map[Var]bool),
-	}
+	return &clauseOccLists{}
 }
 
 // Push adds c to the list of clauses for p.
 func (o *clauseOccLists) Push(p Var, c *Clause) {
+	o.extend(int(p))
 	o.occs[p] = append(o.occs[p], c)
 }
 
+func (o *clauseOccLists) extend(n int) {
+	if n >= len(o.occs) {
+		if n >= len(o._occs) {
+			for i := len(o._occs) - 1; i < n; i++ {
+				o._occs = append(o._occs, nil)
+			}
+			for i := len(o._dirty) - 1; i < n; i++ {
+				o._dirty = append(o._dirty, false)
+			}
+		}
+		o.occs = o._occs[:n+1]
+		o.dirty = o._dirty[:n+1]
+	}
+}
+
 func (o *clauseOccLists) RemoveAll(v Var, free bool) {
+	o.extend(int(v))
+
 	if free {
-		delete(o.occs, v)
+		o.occs[v] = nil
 		return
 	}
 
-	occs, ok := o.occs[v]
-	if !ok {
-		return
-	}
+	occs := o.occs[v]
 	for i := range occs {
 		occs[i] = nil
 	}
@@ -83,13 +97,18 @@ func (o *clauseOccLists) Lookup(p Var) []*Clause {
 // released for garbage collection by the runtime.
 func (o *clauseOccLists) Clear(free bool) {
 	if free {
-		o.occs = map[Var][]*Clause{}
-		o.dirty = map[Var]bool{}
+		o._occs = nil
+		o._dirty = nil
+		o.occs = nil
+		o.dirty = nil
 		o.dirties = nil
 	} else {
 		// replacing maps with empty maps is way easier
-		o.occs = make(map[Var][]*Clause, len(o.occs))
-		o.dirty = make(map[Var]bool, len(o.dirty))
+		for i := range o._occs {
+			o._occs[i] = nil
+		}
+		o.occs = o.occs[:0]
+		o.dirty = o.dirty[:0]
 		o.dirties = o.dirties[:0]
 	}
 }
