@@ -250,6 +250,16 @@ func (s *Simp) AddClause(ps ...Lit) bool {
 	return true
 }
 
+// Interrupt allows a goroutine to interrupt a long running concurrent search.
+func (s *Simp) Interrupt() {
+	s.d.Interrupt()
+}
+
+// ClearInterrupt clears the interrupt flag.
+func (s *Simp) ClearInterrupt() {
+	s.d.ClearInterrupt()
+}
+
 // Okay returns true if s hasn't yet found a contradiction
 func (s *Simp) Okay() bool {
 	return s.d.ok
@@ -356,13 +366,27 @@ func (s *Simp) Eliminate(turnOffElim bool) bool {
 			goto cleanup
 		}
 
+		if s.d.wasInterrupted() {
+			if s.bwdsubAssigns != len(s.d.trail) {
+				panic("bwdsubAssigns in an inconsistent state when interrupted")
+			}
+			if s.subQueue.Len() != 0 {
+				panic("subsumption queue in an inconsistent state when interrupted")
+			}
+			if s.numTouched != 0 {
+				panic("touch count in an inconsistent state when interrupted")
+			}
+			s.elimHeap.Rebuild(nil)
+			goto cleanup
+		}
+
 		for count := 0; ; count++ {
 			elim, ok := s.elimHeap.RemoveMin()
 			if !ok {
 				break
 			}
 
-			if s.d.asyncInterrupt {
+			if s.d.wasInterrupted() {
 				break
 			}
 
@@ -646,7 +670,7 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 	numDeletedLiterals := 0
 	for s.subQueue.Len() > 0 || s.bwdsubAssigns < len(s.d.trail) {
 		// user interrupt -- empty subsumption queue and return immediately
-		if s.d.asyncInterrupt {
+		if s.d.wasInterrupted() {
 			s.subQueue.clear()
 			s.bwdsubAssigns = len(s.d.trail)
 			break

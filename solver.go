@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 	"time"
 )
 
@@ -200,7 +201,7 @@ type DPLL struct {
 	// resource constraints
 	conflictBudget    int64
 	propagationBudget int64
-	asyncInterrupt    bool
+	asyncInterrupt    uint32
 
 	r *rand.Rand
 }
@@ -499,12 +500,18 @@ func (d *DPLL) setPropBudget(n int64) {
 	d.propagationBudget = int64(d.npropogations) + n
 }
 
-func (d *DPLL) interrupt() {
-	d.asyncInterrupt = true
+// Interrupt allows a goroutine to interrupt a long running concurrent search.
+func (d *DPLL) Interrupt() {
+	atomic.StoreUint32(&d.asyncInterrupt, 1)
 }
 
-func (d *DPLL) clearInterrupt() {
-	d.asyncInterrupt = false
+// ClearInterrupt clears the interrupt flag.
+func (d *DPLL) ClearInterrupt() {
+	atomic.StoreUint32(&d.asyncInterrupt, 0)
+}
+
+func (d *DPLL) wasInterrupted() bool {
+	return atomic.LoadUint32(&d.asyncInterrupt) != 0
 }
 
 func (d *DPLL) budgetOff() {
@@ -513,7 +520,7 @@ func (d *DPLL) budgetOff() {
 }
 
 func (d *DPLL) withinBudget() bool {
-	return !d.asyncInterrupt &&
+	return !d.wasInterrupted() &&
 		(d.conflictBudget < 0 || d.nconflicts < uint64(d.conflictBudget)) &&
 		(d.propagationBudget < 0 || d.npropogations < uint64(d.propagationBudget))
 }
