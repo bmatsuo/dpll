@@ -45,23 +45,30 @@ func DecodeFile(s Solver, path string) (ok bool, err error) {
 // from r.
 func Decode(s Solver, r io.Reader) (ok bool, err error) {
 	dec := dimacs.NewDecoder(r)
+	var ps []Lit
 	for dec.Decode() {
 		dc := dec.Clause()
-		ls := make([]Lit, len(dc))
+		if len(ps) < len(dc) {
+			ps = make([]Lit, 2*len(dc))
+		} else {
+			ps = ps[:len(dc)]
+		}
 		for i, dl := range dc {
 			if dl < 0 {
-				ls[i] = Literal(Var(-dl), true)
+				checkVar(uint(-dl))
+				ps[i] = Literal(Var(-dl), true)
 			} else {
-				ls[i] = Literal(Var(dl), false)
+				checkVar(uint(dl))
+				ps[i] = Literal(Var(dl), false)
 			}
 		}
-		for _, p := range ls {
+		for _, p := range ps {
 			for p.Var() > Var(s.NumVar()) {
 				s.NewVar(LUndef, true)
 				//log.Printf("Var(%d)", v)
 			}
 		}
-		if !s.AddClause(ls...) {
+		if !s.AddClause(ps...) {
 			// a contradiction in the clauses was found
 			return false, nil
 		}
