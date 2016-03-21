@@ -83,7 +83,7 @@ type Simp struct {
 	elimClauses   []uint32
 	touched       []bool
 	occurs        *clauseOccLists
-	numOcc        map[Lit]int
+	numOcc        []int
 	elimHeap      *elimQueue
 	subQueue      *clauseQueue
 	frozen        []bool
@@ -112,7 +112,7 @@ func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 		useSimp:        true,
 		occurs:         newClauseOccLists(),
 		subQueue:       newClauseQueue(1),
-		numOcc:         make(map[Lit]int),
+		numOcc:         make([]int, 2),
 		frozen:         make([]bool, 1),
 		eliminated:     make([]bool, 1),
 		touched:        make([]bool, 1),
@@ -145,8 +145,12 @@ func (s *Simp) NewVar(upol LBool, dvar bool) Var {
 	s.frozen = append(s.frozen, false)
 	s.eliminated = append(s.frozen, false)
 	if s.useSimp {
-		s.numOcc[Literal(v, false)] = 0
-		s.numOcc[Literal(v, true)] = 0
+		// because numOcc maps literals to counts the new variable will take up
+		// the next two positions for its positive and negative literals
+		// respectively.
+		s.numOcc = append(s.numOcc, 0)
+		s.numOcc = append(s.numOcc, 0)
+
 		s.occurs.Init(v)
 		s.touched = append(s.touched, false)
 		s.elimHeap.Push(v)
@@ -237,7 +241,7 @@ func (s *Simp) AddClause(ps ...Lit) bool {
 		c := s.d.clauses[numclause]
 		s.subQueue.Insert(c)
 		for _, p := range c.Lit {
-			s.occurs.occs[p.Var()] = append(s.occurs.occs[p.Var()], c)
+			s.occurs.Push(p.Var(), c)
 			s.numOcc[p]++
 			s.touched[p.Var()] = true
 			s.numTouched++

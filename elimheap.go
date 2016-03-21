@@ -10,7 +10,7 @@ import "container/heap"
 // elimQueue is a heap with special access methods.
 type elimQueue minCostHeap
 
-func newElimQueue(numocc *map[Lit]int) *elimQueue {
+func newElimQueue(numocc *[]int) *elimQueue {
 	return (*elimQueue)(newMinCostHeap(numocc))
 }
 
@@ -55,15 +55,22 @@ func (q *elimQueue) Push(v Var) {
 // literal occurance uniformity, maximizing bias between negated and positive
 // literal occurrences for a variable.
 type minCostHeap struct {
-	numocc *map[Lit]int
+	numocc *[]int
 	index  []int
 	vars   []Var
 }
 
 var _ heap.Interface = &minCostHeap{}
 
-func newMinCostHeap(numocc *map[Lit]int) *minCostHeap {
+func newMinCostHeap(numocc *[]int) *minCostHeap {
 	return &minCostHeap{numocc: numocc}
+}
+
+func (h *minCostHeap) get(p Lit) int {
+	if int(p) >= len(*h.numocc) {
+		return 0
+	}
+	return (*h.numocc)[p]
 }
 
 func (h *minCostHeap) Len() int {
@@ -71,7 +78,7 @@ func (h *minCostHeap) Len() int {
 }
 
 func (h *minCostHeap) costSign(v Var, neg bool) uint64 {
-	return uint64((*h.numocc)[Literal(v, neg)])
+	return uint64(h.get(Literal(v, neg)))
 }
 
 func (h *minCostHeap) cost(v Var) uint64 {
