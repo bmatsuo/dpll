@@ -1,4 +1,4 @@
-#dpll
+#dpll [![GoDoc](https://godoc.org/github.com/bmatsuo/dpll?status.svg)](https://godoc.org/github.com/bmatsuo/dpll) [![Build Status](https://travis-ci.org/bmatsuo/dpll.svg?branch=master)](https://travis-ci.org/bmatsuo/dpll)
 
 DPLL satisfiability solver based on [MiniSat](https://github.com/niklasso/minisat).
 
