@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/bmatsuo/dpll"
 )
 
 func main() {
+	runtime.GOMAXPROCS(1)
 	verbosity := flag.Int("v", 1, "verbosity level")
 	flag.Parse()
 	if flag.NArg() != 1 {
