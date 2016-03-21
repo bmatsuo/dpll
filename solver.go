@@ -135,16 +135,21 @@ func mergeOpt(o1, o2 *Opt) *Opt {
 type DPLL struct {
 	Opt
 
+	// internal variables that can be used by subclasses.  they can't really be
+	// exported because they are expected to modify internal solver state.
 	useExtra         bool
 	addClauseFn      func(p ...Lit) bool
 	removeClauseFn   func(c *Clause)
 	garbageCollectFn func()
 
+	// the time at which the solver "started" solving the problem.
 	startTime time.Time
 
+	// outputs to Solve
 	model    []LBool
 	conflict []Lit
 
+	// stats
 	nsolves        uint64
 	nstarts        uint64
 	ndecisions     uint64
@@ -160,41 +165,43 @@ type DPLL struct {
 	nmaxLit        uint64
 	ntotLit        uint64
 
-	clauses     []*Clause
-	learnt      []*Clause
-	trail       []Lit // Assignment stack
-	trailLim    []int // Seprarating indices for decision levels in trail
-	assumptions []Lit // Set of assumptions provided by the user
+	// core CDCL structures
+	clauses     []*Clause // provided clauses
+	learnt      []*Clause // derived clauses
+	trail       []Lit     // assignment stack
+	trailLim    []int     // seprarating indices for decision levels in trail
+	assumptions []Lit     // set of assumptions provided by the user
 
-	activity  []float64
-	assigns   []LBool
-	polarity  []bool
-	upolarity []LBool
-	decision  []bool
-	vardata   []varData
+	// containers keyed by variables
+	activity  []float64 // measure of occurance
+	assigns   []LBool   // assignments for each variable
+	polarity  []bool    // saved assignment polarity when phase saving is enabled
+	upolarity []LBool   // user defined polarity for a variable
+	decision  []bool    // marker to determine if a variable can be used as a decision variable
+	vardata   []varData // metadata relating to the assignment of a variable
 	watches   *occLists // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
 
-	orderHeap *activityQueue
-
-	ok          bool    // If false the constraints are already unsatisfiable. No part of the solver state may be used.
-	claIncr     float64 // Amount to bump next clause with
-	varIncr     float64 // Amount to bump next variable with
-	qhead       int     // Head of queue as index into trail.
-	nsimpAssign int     // Number of top level assignments since last call to Simplify
-	nsimpProps  int64   // Number of propagations that must be made before the next call to Simplify
-	progress    float64 // Estimate set by search
-	removeSat   bool    // Indicates whether a possibly inefficient scan for satisfied clauses should be done in Simplify
-	varNext     Var     // Next variable to be created
-
+	orderHeap    *activityQueue // priority queue of variables for decisions
 	releasedVars []Var
 	freeVars     []Var
 
+	ok          bool    // if false the constraints are already unsatisfiable.  no part of the solver state may be used.
+	claIncr     float64 // amount to bump next clause with
+	varIncr     float64 // amount to bump next variable with
+	qhead       int     // head of queue as index into trail.
+	nsimpAssign int     // number of top level assignments since last call to Simplify
+	nsimpProps  int64   // number of propagations that must be made before the next call to Simplify
+	progress    float64 // estimate set by search
+	removeSat   bool    // indicates whether a possibly inefficient scan for satisfied clauses should be done in Simplify
+	varNext     Var     // next variable to be created
+
 	// temporary buffers
-	seen           []Seen
+	seen           []Seen // keyed by Var
 	analyzeStack   []shrinkLit
 	analyzeToClear []Lit
 	addTmp         []Lit
 
+	// limits governing garbage collection
 	maxLearnt         float64
 	learntAdjustConfl float64
 	learntAdjustCnt   int
@@ -222,6 +229,9 @@ func New(opt *Opt) *DPLL {
 	d.removeSat = true
 	d.conflictBudget = -1
 	d.propagationBudget = -1
+
+	// pad all slices indexed by variables to account for VarUndef.  minisat
+	// does not need to pad vectors because valid variables start at zero.
 	d.assigns = []LBool{LUndef}
 	d.vardata = []varData{{nil, 0}}
 	d.activity = []float64{0}
@@ -229,7 +239,9 @@ func New(opt *Opt) *DPLL {
 	d.polarity = []bool{true}
 	d.upolarity = []LBool{LUndef}
 	d.decision = []bool{false}
+
 	d.initRand()
+
 	return d
 }
 

@@ -77,22 +77,32 @@ type Simp struct {
 	nelimvars int
 
 	// solver state
-	elimOrder     int
+
 	useSimp       bool
 	maxSimpVar    Var
-	elimClauses   []uint32
-	touched       []bool
-	occurs        *clauseOccLists
-	numOcc        []int
-	elimHeap      *elimQueue
 	subQueue      *clauseQueue
-	frozen        []bool
-	frozenVars    []Var
-	eliminated    []bool
 	bwdsubAssigns int
 	numTouched    int
 
-	bwdsubTempUnit *Clause
+	// numOcc and occurs uses Lit indices unlike other slices which use Var
+	// indices.
+	numOcc   []int
+	elimHeap *elimQueue
+
+	// variable state specific to simplification
+	occurs     *clauseOccLists // map to all clauses a variable appears in
+	touched    []bool          // internal marker
+	eliminated []bool          // whether a variable has been eliminated
+	frozen     []bool          // variable has been frozen and cannot be eliminated
+	frozenVars []Var           // frozen vars to be cleared with Thaw
+
+	// elimClauses contains clauses eliminated from simplification.  Clauses
+	// are encoded with the number of literals in a clause following the
+	// literals themselves, so that they may be consumed from back to front.
+	//		p1 p2 p3 ... pn <n> q1 q2 .. qm <m> ...
+	elimClauses []uint32
+
+	elimOrder int // looks dead in the minisat source code
 
 	d *DPLL
 }
@@ -107,20 +117,20 @@ func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 	d.removeSat = false
 
 	s := &Simp{
-		SimpOpt:        *mergeSimpOpt(simpOptDefault, simpOpt),
-		elimOrder:      1,
-		useSimp:        true,
-		occurs:         newClauseOccLists(),
-		subQueue:       newClauseQueue(1),
-		numOcc:         make([]int, 2),
-		frozen:         make([]bool, 1),
-		eliminated:     make([]bool, 1),
-		touched:        make([]bool, 1),
-		bwdsubTempUnit: d.newClause([]Lit{0}, false),
-		d:              d,
+		SimpOpt:    *mergeSimpOpt(simpOptDefault, simpOpt),
+		elimOrder:  1,
+		useSimp:    true,
+		occurs:     newClauseOccLists(),
+		subQueue:   newClauseQueue(1),
+		numOcc:     make([]int, 2), // two spaces for positive and negative literals
+		frozen:     make([]bool, 1),
+		eliminated: make([]bool, 1),
+		touched:    make([]bool, 1),
+		d:          d,
 	}
 	s.elimHeap = newElimQueue(&s.numOcc)
 
+	// override standard DPLL methods
 	d.addClauseFn = s.AddClause
 	d.removeClauseFn = s.removeClause
 	d.garbageCollectFn = s.garbageCollect
