@@ -5,28 +5,40 @@
 
 package dpll
 
-import "strconv"
+import (
+	"fmt"
+	"math"
+	"strconv"
+)
 
 // Helpful constants
 const (
 	VarUndef = Var(0)
 	LitUndef = Lit(0)
 
+	VarMax = math.MaxUint32 / 2
+
 	// unlike miniSAT a lit_Error analogue is unnecessary because go supports
 	// multiple return types.
 )
 
 // Var is a propositional variable.  Variables begin at 1.
-type Var uint
+type Var uint32
 
 // IsUndef returns true if v is undefined.
 func (v Var) IsUndef() bool {
 	return v == 0
 }
 
+func checkVar(v uint) {
+	if v > VarMax {
+		panic(fmt.Sprintf("value outside acceptable variable range: %d", v))
+	}
+}
+
 // Lit is a propositional literal that encodes possible negation with a
 // variable.
-type Lit uint
+type Lit uint32
 
 // Literal creates a Lit from v.  If neg is true then the literal is negated.
 func Literal(v Var, neg bool) Lit {
@@ -39,8 +51,10 @@ func Literal(v Var, neg bool) Lit {
 // LiteralInt creates a Lit from integer x.
 func LiteralInt(x int) Lit {
 	if x < 0 {
+		checkVar(uint(-x))
 		return Literal(Var(-x), true)
 	}
+	checkVar(uint(x))
 	return Literal(Var(x), false)
 }
 

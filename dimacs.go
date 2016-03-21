@@ -55,8 +55,10 @@ func Decode(s Solver, r io.Reader) (ok bool, err error) {
 		}
 		for i, dl := range dc {
 			if dl < 0 {
+				checkVar(uint(-dl))
 				ps[i] = Literal(Var(-dl), true)
 			} else {
+				checkVar(uint(dl))
 				ps[i] = Literal(Var(dl), false)
 			}
 		}
