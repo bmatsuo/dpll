@@ -716,7 +716,7 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 		// find best variable to scan
 		best := c.Lit[0].Var()
 		bestSize := len(s.occurs.Occurrences(c.Lit[0].Var()))
-		for i := 1; i < c.Len(); i++ {
+		for i := range c.Lit {
 			if len(s.occurs.Occurrences(c.Lit[i].Var())) < bestSize {
 				best = c.Lit[i].Var()
 				bestSize = len(s.occurs.Occurrences(c.Lit[i].Var()))
