@@ -7,18 +7,66 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/pprof"
 	"time"
 
 	"github.com/bmatsuo/dpll"
 )
 
-func main() {
+func init() {
 	runtime.GOMAXPROCS(1)
+}
+
+func main() {
+	cpuProfile := flag.String("cpuprofile", "", "path to write a pprof cpu profile for execution")
+	attemptSolve := flag.Bool("solve", true, "do not attempt to solve the problem")
 	verbosity := flag.Int("v", 1, "verbosity level")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		log.Fatalf("%s expects exactly one argument", os.Args[0])
 	}
+
+	exitCode := 0
+	const (
+		SAT   = 10
+		UNSAT = 20
+		FAIL  = 1
+	)
+	defer func() {
+		if e := recover(); e != nil {
+			panic(e)
+		}
+
+		switch exitCode {
+		case 10:
+			fmt.Println("SATISFIABLE")
+		case 20:
+			fmt.Println("UNSATISFIABLE")
+		default:
+			fmt.Println("INDETERMINATE")
+		}
+
+		os.Exit(exitCode)
+	}()
+
+	if *cpuProfile != "" {
+		fcpu, err := os.Create(*cpuProfile)
+		if err != nil {
+			log.Printf("failed creating pprof file: %v", err)
+			exitCode = FAIL
+			return
+		}
+		defer fcpu.Close()
+
+		err = pprof.StartCPUProfile(fcpu)
+		if err != nil {
+			log.Printf("failed to start profiling: %v", err)
+			exitCode = FAIL
+			return
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	solver := dpll.NewSimp(&dpll.Opt{
 		Verbosity: *verbosity,
 	}, nil)
@@ -26,9 +74,11 @@ func main() {
 	parseStart := time.Now()
 	_, err := dpll.DecodeFile(solver, flag.Arg(0))
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return
 	}
 	parseEnd := time.Now()
+
 	log.Printf("============================[ Problem Statistics ]=============================")
 	if *verbosity >= 1 {
 		log.Printf("|  Number of variables:  %12d                                         |", solver.NumVar())
@@ -63,25 +113,35 @@ func main() {
 			log.Println()
 		}
 		fmt.Fprintln(os.Stderr)
-		fmt.Println("UNSATISFIABLE")
-		os.Exit(20)
+		exitCode = UNSAT
+		return
 	}
 
-	// TODO: if simplification is all that is desired then exit as indeterminate result
-	solution := solver.SolveLimited()
+	solution := dpll.LUndef
+	if *attemptSolve {
+		solution = solver.SolveLimited()
+	} else {
+		if *verbosity >= 1 {
+			log.Printf("===============================================================================")
+			log.Printf("Simplification did not yield a result.")
+			log.Println()
+			log.Printf("No solution attempted.")
+			log.Println()
+		}
+	}
 
 	if *verbosity >= 1 {
 		solver.PrintStats()
 		fmt.Fprintln(os.Stderr)
 	}
 	if solution.IsTrue() {
-		fmt.Println("SATISFIABLE")
-		os.Exit(10)
+		exitCode = SAT
+		return
 	} else if solution.IsFalse() {
-		fmt.Println("UNSATISFIABLE")
-		os.Exit(20)
+		exitCode = UNSAT
+		return
 	} else {
-		fmt.Println("INDETERMINATE")
-		os.Exit(0)
+		exitCode = 0
+		return
 	}
 }
