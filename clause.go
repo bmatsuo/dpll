@@ -124,18 +124,18 @@ func (c *Clause) Subsumes(c2 *Clause) (ok bool, p Lit) {
 	// subsumtion requires the set of literals to be the same except for the
 	// presence of p in c and ~p c2 (where p = ~~p for any literal p).
 outer:
-	for _, lit1 := range c.Lit {
-		for _, lit2 := range c2.Lit {
-			if !lit1.SharesVar(lit2) {
+	for i := range c.Lit {
+		for j := range c2.Lit {
+			if !c.Lit[i].SharesVar(c2.Lit[j]) {
 				continue
 			}
-			if lit1 == lit2 {
+			if c.Lit[i] == c2.Lit[j] {
 				continue outer
 			}
 			if !p.IsUndef() {
 				break
 			}
-			p = lit1
+			p = c.Lit[i]
 			continue outer
 		}
 		return false, LitUndef
