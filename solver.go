@@ -402,13 +402,7 @@ func (d *DPLL) Value(v Var) LBool {
 
 // ValueLit returns the current value of lit.
 func (d *DPLL) ValueLit(lit Lit) LBool {
-	if d.assigns[lit.Var()].IsUndef() {
-		return LUndef
-	}
-	if lit.IsNeg() {
-		return LiftBool(d.assigns[lit.Var()].IsFalse())
-	}
-	return LiftBool(d.assigns[lit.Var()].IsTrue())
+	return d.assigns[lit.Var()].Xor(lit.IsNeg())
 }
 
 // ValueModel returns the value of v in the last model.  The last call to Solve
