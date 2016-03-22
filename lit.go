@@ -90,6 +90,11 @@ func (l Lit) Inverse() Lit {
 	return l ^ 1
 }
 
+// SharesVar returns true if l.Var() and l2.Var() are equal.
+func (l Lit) SharesVar(l2 Lit) bool {
+	return l&^1 == l2&^1
+}
+
 // Xor returns a literal of l.Var() that is negated iff l.IsNeg() XOR b.
 func (l Lit) Xor(b bool) Lit {
 	return l ^ btol(b)

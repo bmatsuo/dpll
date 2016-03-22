@@ -126,13 +126,17 @@ func (c *Clause) Subsumes(c2 *Clause) (ok bool, p Lit) {
 outer:
 	for _, lit1 := range c.Lit {
 		for _, lit2 := range c2.Lit {
+			if !lit1.SharesVar(lit2) {
+				continue
+			}
 			if lit1 == lit2 {
 				continue outer
 			}
-			if p.IsUndef() && lit1 == lit2.Inverse() {
-				p = lit1
-				continue outer
+			if !p.IsUndef() {
+				break
 			}
+			p = lit1
+			continue outer
 		}
 		return false, LitUndef
 	}
