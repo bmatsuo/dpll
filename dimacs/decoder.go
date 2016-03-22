@@ -7,10 +7,13 @@ package dimacs
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
+	"unsafe"
 )
 
 // Decoder reads a DIMACS format stream of bytes from an io.Decoder.
@@ -19,7 +22,6 @@ type Decoder struct {
 	h     *Header
 	htext []byte
 	n     int
-	seen  []bool
 	c     []Lit
 	err   error
 }
@@ -128,7 +130,6 @@ func (r *Decoder) readHeader() {
 	}
 
 	r.h = h
-	r.seen = make([]bool, r.h.NumVar+1)
 	r.c = make([]Lit, r.h.NumVar)
 }
 
@@ -164,43 +165,54 @@ func (r *Decoder) Decode() bool {
 	}
 	r.n++
 
-	fields := strings.Fields(r.s.Text())
-	if fields[len(fields)-1] != "0" {
-		r.err = fmt.Errorf("invalid clause line: missing terminating null")
-		return false
-	}
-	fields = fields[:len(fields)-1]
-	if len(fields) > r.h.NumVar {
-		r.err = fmt.Errorf("invalid clause line: too many fields")
-		return false
-	}
-
-	for i := range r.seen {
-		r.seen[i] = false
-	}
 	r.c = r.c[:0]
 
-	for _, litstr := range fields {
-		x, err := strconv.Atoi(litstr)
-		if err != nil {
-			r.err = fmt.Errorf("invalid literal: %q", litstr)
+	lineFull := r.s.Bytes()
+	line := lineFull
+	foundTerm := false
+	for {
+		iNotSpace := bytes.IndexFunc(line, func(c rune) bool { return !unicode.IsSpace(c) })
+		if iNotSpace < 0 {
+			if !foundTerm && len(r.c) > 0 {
+				r.err = fmt.Errorf("invalid clause line: missing terminating null")
+				return false
+			}
+			return true
+		}
+		if foundTerm {
+			r.err = fmt.Errorf("invalid clause line: unexpected null literal")
 			return false
 		}
+
+		line = line[iNotSpace:]
+		iSpace := bytes.IndexFunc(line, unicode.IsSpace)
+		var field []byte
+		if iSpace < 0 {
+			field = line
+			line = nil
+		} else {
+			field = line[:iSpace]
+			line = line[iSpace:]
+		}
+
+		x, err := strconv.Atoi(*(*string)(unsafe.Pointer(&field)))
+		if err != nil {
+			r.err = fmt.Errorf("invalid clause line: failed to parse literal: %v", err)
+			return false
+		}
+		if x == 0 {
+			foundTerm = true
+			continue
+		}
+
 		lit := Lit(x)
 		v := lit.Var()
-		if v == 0 {
-			r.err = fmt.Errorf("invalid literal: %q", litstr)
+
+		if v > r.h.NumVar {
+			r.err = fmt.Errorf("invalid clause line: variable outside of range")
 			return false
 		}
-		if int(v) > r.h.NumVar {
-			r.err = fmt.Errorf("unknown variable")
-			return false
-		}
-		if r.seen[v] {
-			r.err = fmt.Errorf("duplicate variable")
-			return false
-		}
-		r.c = append(r.c, Lit(x))
+
+		r.c = append(r.c, lit)
 	}
-	return true
 }
