@@ -632,7 +632,6 @@ func (d *DPLL) garbageCollect() {
 }
 
 func (d *DPLL) relocAll() (numremove int) {
-	// TODO: all watchers
 	d.watches.CleanAll()
 
 	for i := range d.trail {
@@ -821,6 +820,9 @@ func (d *DPLL) propagate() *Clause {
 			} else {
 				d.uncheckedEnqueue(first, c)
 			}
+		}
+		for i := j; i < len(ws); i++ {
+			ws[i] = watcher{}
 		}
 		d.watches.occs[p] = ws[:j]
 

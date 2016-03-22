@@ -149,6 +149,9 @@ func (o *occLists) Clean(p Lit) {
 			j++
 		}
 	}
+	for i := j; i < len(occs); i++ {
+		occs[i] = watcher{}
+	}
 	o.occs[p] = occs[:j]
 	o.dirty[p] = false
 }
