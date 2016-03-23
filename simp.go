@@ -82,6 +82,7 @@ type Simp struct {
 	maxSimpVar    Var
 	subQueue      *clauseQueue
 	bwdsubAssigns int
+	bwdsubTmpUnit *Clause // a unit clause used temporary to inject in subQueue
 	numTouched    int
 
 	// numOcc and occurs uses Lit indices unlike other slices which use Var
@@ -117,16 +118,17 @@ func NewSimp(opt *Opt, simpOpt *SimpOpt) *Simp {
 	d.removeSat = false
 
 	s := &Simp{
-		SimpOpt:    *mergeSimpOpt(simpOptDefault, simpOpt),
-		elimOrder:  1,
-		useSimp:    true,
-		occurs:     newClauseOccLists(),
-		subQueue:   newClauseQueue(1),
-		numOcc:     make([]int, 2), // two spaces for positive and negative literals
-		frozen:     make([]bool, 1),
-		eliminated: make([]bool, 1),
-		touched:    make([]bool, 1),
-		d:          d,
+		SimpOpt:       *mergeSimpOpt(simpOptDefault, simpOpt),
+		elimOrder:     1,
+		useSimp:       true,
+		bwdsubTmpUnit: d.newClause([]Lit{0}, false),
+		occurs:        newClauseOccLists(),
+		subQueue:      newClauseQueue(1),
+		numOcc:        make([]int, 2), // two spaces for positive and negative literals
+		frozen:        make([]bool, 1),
+		eliminated:    make([]bool, 1),
+		touched:       make([]bool, 1),
+		d:             d,
 	}
 	s.elimHeap = newElimQueue(&s.numOcc)
 
@@ -693,7 +695,8 @@ func (s *Simp) backwardSubsumptionCheck(verbose bool) bool {
 		if s.subQueue.Len() == 0 && s.bwdsubAssigns < len(s.d.trail) {
 			p := s.d.trail[s.bwdsubAssigns]
 			s.bwdsubAssigns++
-			s.subQueue.Insert(s.d.newClause([]Lit{p}, false))
+			s.bwdsubTmpUnit.Lit[0] = p
+			s.subQueue.Insert(s.bwdsubTmpUnit)
 		}
 
 		c := s.subQueue.Pop()
