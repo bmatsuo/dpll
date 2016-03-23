@@ -835,9 +835,8 @@ func (s *Simp) merge(c1 *Clause, c2 *Clause, v Var) (ok bool, ps []Lit) {
 shortList:
 	for j := range c2.Lit {
 		if c2.Lit[j].Var() != v {
-			vq := c2.Lit[j].Var()
 			for i := range c1.Lit {
-				if c1.Lit[i].Var() == vq {
+				if c1.Lit[i].SharesVar(c2.Lit[j]) {
 					if c1.Lit[i] == c2.Lit[j].Inverse() {
 						return false, nil
 					}
@@ -875,9 +874,8 @@ func (s *Simp) mergeSize(c1 *Clause, c2 *Clause, v Var) (ok bool, size int) {
 shortList:
 	for j := range c2.Lit {
 		if c2.Lit[j].Var() != v {
-			vq := c2.Lit[j].Var()
 			for i := range c1.Lit {
-				if c1.Lit[i].Var() == vq {
+				if c1.Lit[i].SharesVar(c2.Lit[j]) {
 					if c1.Lit[i] == c2.Lit[j].Inverse() {
 						return false, 0
 					}

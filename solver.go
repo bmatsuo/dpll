@@ -1393,7 +1393,7 @@ func (d *DPLL) pickBranchLit() Lit {
 
 func (d *DPLL) addClause(c []Lit) bool {
 	if d.decisionLevel() != 0 {
-		panic("decision level")
+		panic("non-root decision level")
 	}
 	if !d.ok {
 		return false
@@ -1404,8 +1404,12 @@ func (d *DPLL) addClause(c []Lit) bool {
 	var j int
 	for i, p := 0, LitUndef; i < len(c); i++ {
 		if d.ValueLit(c[i]).IsTrue() || c[i] == p.Inverse() {
+			// the clause is trivially satisfied either through previous
+			// implications or because it contains a pair of literals p and -p
 			return true
 		} else if !d.ValueLit(c[i]).IsFalse() && c[i] != p {
+			// the clause may contain duplicate literals.  this is how we
+			// ignore them.
 			p = c[i]
 			c[j] = p
 			j++
