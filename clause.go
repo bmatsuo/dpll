@@ -116,7 +116,7 @@ type ClauseExtra struct {
 // subsumption resolution.  If Subsumes returns true and p is not LitUndef then
 // p can be removed from c2.
 func (c *Clause) Subsumes(c2 *Clause) (ok bool, p Lit) {
-	if c.Len() != c2.Len() && c.Abstraction&^c2.Abstraction != 0 {
+	if c2.Len() < c.Len() && c.Abstraction&^c2.Abstraction != 0 {
 		return false, LitUndef
 	}
 	p = LitUndef
@@ -132,11 +132,11 @@ outer:
 			if lit1 == lit2 {
 				continue outer
 			}
-			if !p.IsUndef() {
-				break
+			if p.IsUndef() {
+				p = lit1
+				continue outer
 			}
-			p = lit1
-			continue outer
+			break
 		}
 		return false, LitUndef
 	}
